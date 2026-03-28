@@ -1,0 +1,625 @@
+import { createSignal, createRoot } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
+
+export interface ReleaseInfo {
+  tag: string;
+  name: string;
+  body: string;
+  published_at: string;
+  html_url: string;
+  assets: AssetInfo[];
+}
+
+export interface AssetInfo {
+  name: string;
+  browser_download_url: string;
+  size: number;
+}
+
+export interface NetworkInterface {
+  name: string;
+  ip: string;
+  type: string;
+}
+
+export interface VaultwardenConfig {
+  address: string;
+  port: number;
+  domain: string;
+  enable_tls: boolean;
+  cert_path: string;
+  key_path: string;
+  data_folder: string;
+}
+
+export interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+}
+
+export interface ValidationResult {
+  binary_exists: boolean;
+  webvault_exists: boolean;
+  cert_exists: boolean;
+  key_exists: boolean;
+  is_ready: boolean;
+  missing_items: string[];
+}
+
+export interface WebVaultVersion {
+  version: string;
+  download_url: string;
+  size: number;
+}
+
+export interface BackupConfig {
+  enabled: boolean;
+  interval_minutes: number;
+  retention_count: number;
+  custom_dir: string | null;
+  require_idle: boolean;
+}
+
+export interface BackupInfo {
+  filename: string;
+  path: string;
+  size: number;
+  created_at: string;
+}
+
+export interface ActivityStatus {
+  is_active: boolean;
+  last_activity: string;
+  minutes_since_activity: number;
+}
+
+function createAppStore() {
+  const [isRunning, setIsRunning] = createSignal(false);
+  const [binaryVersion, setBinaryVersion] = createSignal("");
+  const [binaryLatestVersion, setBinaryLatestVersion] = createSignal("");
+  const [webvaultVersion, setWebvaultVersion] = createSignal("");
+  const [webvaultLatestVersion, setWebvaultLatestVersion] = createSignal("");
+  const [releases, setReleases] = createSignal<ReleaseInfo[]>([]);
+  const [networkIps, setNetworkIps] = createSignal<NetworkInterface[]>([]);
+  const [selectedIp, setSelectedIp] = createSignal("");
+  const [config, setConfig] = createSignal<VaultwardenConfig>({
+    address: "0.0.0.0",
+    port: 8443,
+    domain: "https://127.0.0.1:8443",
+    enable_tls: true,
+    cert_path: "localhost.crt",
+    key_path: "localhost.key",
+    data_folder: "data",
+  });
+  const [logs, setLogs] = createSignal<LogEntry[]>([]);
+  const [isCheckingUpdate, setIsCheckingUpdate] = createSignal(false);
+  const [isDownloading, setIsDownloading] = createSignal(false);
+  const [downloadProgress, setDownloadProgress] = createSignal(0);
+  const [downloadFile, setDownloadFile] = createSignal("");
+  const [validation, setValidation] = createSignal<ValidationResult | null>(null);
+  const [opensslAvailable, setOpensslAvailable] = createSignal(true);
+  const [isGeneratingCerts, setIsGeneratingCerts] = createSignal(false);
+  const [error, setError] = createSignal<string | null>(null);
+
+  const [backupConfig, setBackupConfig] = createSignal<BackupConfig>({
+    enabled: false,
+    interval_minutes: 10,
+    retention_count: 7,
+    custom_dir: null,
+    require_idle: false,
+  });
+  const [backups, setBackups] = createSignal<BackupInfo[]>([]);
+  const [lastBackup, setLastBackup] = createSignal<string | null>(null);
+  const [isBackingUp, setIsBackingUp] = createSignal(false);
+  const [activityStatus, setActivityStatus] = createSignal<ActivityStatus | null>(null);
+  const [showBackupWarning, setShowBackupWarning] = createSignal(false);
+  const [scheduledTaskExists, setScheduledTaskExists] = createSignal(false);
+
+  const loadConfig = async () => {
+    try {
+      const cfg = await invoke<VaultwardenConfig>("load_config");
+      setConfig(cfg);
+    } catch (e) {
+      console.error("Failed to load config:", e);
+    }
+  };
+
+  const saveConfig = async (cfg: VaultwardenConfig) => {
+    try {
+      await invoke("save_config", { config: cfg });
+      setConfig(cfg);
+    } catch (e) {
+      console.error("Failed to save config:", e);
+      throw e;
+    }
+  };
+
+  const checkBinaryVersion = async () => {
+    try {
+      const exists = await invoke<boolean>("check_binary_exists");
+      if (exists) {
+        const version = await invoke<string | null>("get_binary_version");
+        setBinaryVersion(version || "");
+      } else {
+        setBinaryVersion("");
+      }
+    } catch (e) {
+      console.error("Failed to check binary version:", e);
+    }
+  };
+
+  const checkWebvaultVersion = async () => {
+    try {
+      const exists = await invoke<boolean>("check_webvault");
+      if (exists) {
+        const version = await invoke<string | null>("get_webvault_version");
+        setWebvaultVersion(version || "installed");
+      } else {
+        setWebvaultVersion("");
+      }
+    } catch (e) {
+      console.error("Failed to check webvault version:", e);
+    }
+  };
+
+  const checkAllVersions = async () => {
+    setIsCheckingUpdate(true);
+    setError(null);
+    try {
+      const latestBinary = await invoke<string>("get_latest_binary_version");
+      setBinaryLatestVersion(latestBinary);
+
+      const latestWebvault = await invoke<WebVaultVersion>("get_latest_webvault_version");
+      setWebvaultLatestVersion(latestWebvault.version);
+
+      await checkBinaryVersion();
+      await checkWebvaultVersion();
+      await validateEnvironment();
+    } catch (e) {
+      console.error("Failed to check updates:", e);
+      setError(String(e));
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const downloadBinary = async (version: string) => {
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    setDownloadFile("vaultwarden.exe");
+    setError(null);
+    try {
+      await invoke("download_binary", { version });
+    } catch (e) {
+      console.error("Failed to download binary:", e);
+      setError(String(e));
+      throw e;
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+      setDownloadFile("");
+    }
+  };
+
+  const downloadWebvault = async () => {
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    setDownloadFile("web-vault");
+    setError(null);
+    try {
+      const version = await invoke<string>("download_webvault");
+      setWebvaultVersion(version);
+      await validateEnvironment();
+    } catch (e) {
+      console.error("Failed to download webvault:", e);
+      setError(String(e));
+      throw e;
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+      setDownloadFile("");
+    }
+  };
+
+  const getLocalIps = async () => {
+    try {
+      const ips = await invoke<NetworkInterface[]>("get_local_ips");
+      setNetworkIps(ips);
+      if (ips.length > 0 && !selectedIp()) {
+        const ip = ips[0].ip;
+        setSelectedIp(ip);
+        updateDomainWithIp(ip);
+      }
+      return ips;
+    } catch (e) {
+      console.error("Failed to get local IPs:", e);
+      throw e;
+    }
+  };
+
+  const updateDomainWithIp = (ip: string) => {
+    const cfg = config();
+    setConfig({
+      ...cfg,
+      domain: `https://${ip}:${cfg.port}`,
+    });
+  };
+
+  const generateCertificates = async () => {
+    if (!opensslAvailable()) {
+      setError("OpenSSL is not installed. Please install OpenSSL to generate certificates.");
+      return;
+    }
+
+    setIsGeneratingCerts(true);
+    setError(null);
+    try {
+      await invoke("generate_certificates", {
+        certPath: config().cert_path,
+        keyPath: config().key_path,
+        ip: selectedIp(),
+      });
+      await validateEnvironment();
+    } catch (e) {
+      console.error("Failed to generate certificates:", e);
+      setError(String(e));
+      throw e;
+    } finally {
+      setIsGeneratingCerts(false);
+    }
+  };
+
+  const validateEnvironment = async () => {
+    try {
+      const result = await invoke<ValidationResult>("validate_environment", {
+        config: config(),
+      });
+      setValidation(result);
+      return result;
+    } catch (e) {
+      console.error("Failed to validate environment:", e);
+      return null;
+    }
+  };
+
+  const startVaultwarden = async () => {
+    setError(null);
+    try {
+      const validationResult = await validateEnvironment();
+      if (validationResult && !validationResult.is_ready) {
+        const missing = validationResult.missing_items.join(", ");
+        throw new Error(`Missing required files: ${missing}`);
+      }
+      await invoke("start_vaultwarden", { config: config() });
+      setIsRunning(true);
+    } catch (e) {
+      console.error("Failed to start vaultwarden:", e);
+      setError(String(e));
+      throw e;
+    }
+  };
+
+  const stopVaultwarden = async () => {
+    try {
+      await invoke("stop_vaultwarden");
+      setIsRunning(false);
+    } catch (e) {
+      console.error("Failed to stop vaultwarden:", e);
+      throw e;
+    }
+  };
+
+  const getStatus = async () => {
+    try {
+      const status = await invoke<boolean>("get_status");
+      setIsRunning(status);
+      return status;
+    } catch (e) {
+      console.error("Failed to get status:", e);
+      return false;
+    }
+  };
+
+  const addLog = (level: string, message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs((prev) => [...prev, { timestamp, level, message }].slice(-500));
+  };
+
+  const clearLogs = () => {
+    setLogs([]);
+  };
+
+  const checkOpenssl = async () => {
+    try {
+      const available = await invoke<boolean>("check_openssl_available");
+      setOpensslAvailable(available);
+      return available;
+    } catch (e) {
+      console.error("Failed to check openssl:", e);
+      setOpensslAvailable(false);
+      return false;
+    }
+  };
+
+  const loadBackupConfig = async () => {
+    try {
+      const cfg = await invoke<BackupConfig>("get_backup_config");
+      setBackupConfig(cfg);
+      const exists = await invoke<boolean>("check_scheduled_task_exists");
+      setScheduledTaskExists(exists);
+    } catch (e) {
+      console.error("Failed to load backup config:", e);
+    }
+  };
+
+  const saveBackupConfig = async (cfg: BackupConfig) => {
+    try {
+      await invoke("save_backup_config", { config: cfg });
+      setBackupConfig(cfg);
+      if (cfg.enabled) {
+        await invoke("create_scheduled_task", { intervalMinutes: cfg.interval_minutes });
+        setScheduledTaskExists(true);
+      } else {
+        await invoke("delete_scheduled_task");
+        setScheduledTaskExists(false);
+      }
+    } catch (e) {
+      console.error("Failed to save backup config:", e);
+      throw e;
+    }
+  };
+
+  const listBackups = async () => {
+    try {
+      const backupList = await invoke<BackupInfo[]>("list_backups", { backupDir: backupConfig().custom_dir });
+      setBackups(backupList);
+      return backupList;
+    } catch (e) {
+      console.error("Failed to list backups:", e);
+      return [];
+    }
+  };
+
+  const checkDatabaseActivity = async () => {
+    try {
+      const status = await invoke<ActivityStatus>("check_database_activity");
+      setActivityStatus(status);
+      return status;
+    } catch (e) {
+      console.error("Failed to check activity:", e);
+      return null;
+    }
+  };
+
+  const performBackup = async () => {
+    setShowBackupWarning(false);
+    setIsBackingUp(true);
+    setError(null);
+    try {
+      const activity = await checkDatabaseActivity();
+      if (activity && activity.is_active) {
+        setShowBackupWarning(true);
+        setIsBackingUp(false);
+        return;
+      }
+      
+      await invoke("backup_database", { backupDir: backupConfig().custom_dir });
+      await invoke("cleanup_old_backups", { 
+        backupDir: backupConfig().custom_dir, 
+        retentionCount: backupConfig().retention_count 
+      });
+      await listBackups();
+      const lastTime = await invoke<string | null>("get_last_backup_time", { backupDir: backupConfig().custom_dir });
+      setLastBackup(lastTime);
+    } catch (e) {
+      console.error("Failed to perform backup:", e);
+      setError(String(e));
+      throw e;
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const forceBackup = async () => {
+    setShowBackupWarning(false);
+    setIsBackingUp(true);
+    setError(null);
+    try {
+      await invoke("backup_database", { backupDir: backupConfig().custom_dir });
+      await invoke("cleanup_old_backups", { 
+        backupDir: backupConfig().custom_dir, 
+        retentionCount: backupConfig().retention_count 
+      });
+      await listBackups();
+      const lastTime = await invoke<string | null>("get_last_backup_time", { backupDir: backupConfig().custom_dir });
+      setLastBackup(lastTime);
+    } catch (e) {
+      console.error("Failed to perform backup:", e);
+      setError(String(e));
+      throw e;
+    } finally {
+      setIsBackingUp(false);
+    }
+  };
+
+  const deleteBackup = async (path: string) => {
+    try {
+      await invoke("delete_backup", { backupPath: path });
+      await listBackups();
+    } catch (e) {
+      console.error("Failed to delete backup:", e);
+      setError(String(e));
+      throw e;
+    }
+  };
+
+  const restoreBackup = async (path: string) => {
+    setError(null);
+    try {
+      if (isRunning()) {
+        await stopVaultwarden();
+      }
+      await invoke("restore_backup", { backupPath: path });
+      if (isRunning()) {
+        await startVaultwarden();
+      }
+    } catch (e) {
+      console.error("Failed to restore backup:", e);
+      setError(String(e));
+      throw e;
+    }
+  };
+
+  const selectBackupDirectory = async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: "选择备份目录",
+      });
+      if (selected) {
+        setBackupConfig((prev) => ({ ...prev, custom_dir: selected as string }));
+        return selected as string;
+      }
+      return null;
+    } catch (e) {
+      console.error("Failed to select directory:", e);
+      return null;
+    }
+  };
+
+  const setupListeners = async () => {
+    await listen<string>("status-changed", (event) => {
+      setIsRunning(event.payload as boolean);
+    });
+
+    await listen<{ level: string; message: string }>("vaultwarden-log", (event) => {
+      addLog(event.payload.level, event.payload.message);
+    });
+
+    await listen<{ progress: number; downloaded: number; total: number; file: string }>(
+      "download-progress",
+      (event) => {
+        setDownloadProgress(event.payload.progress);
+        setDownloadFile(event.payload.file);
+      }
+    );
+
+    await listen("download-complete", () => {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+      setDownloadFile("");
+    });
+
+    await listen("tray-start", async () => {
+      if (!isRunning()) {
+        try {
+          await startVaultwarden();
+        } catch (e) {
+          console.error("Tray start failed:", e);
+        }
+      }
+    });
+
+    await listen("tray-check-update", async () => {
+      await checkAllVersions();
+    });
+
+    await checkOpenssl();
+    await getStatus();
+    await loadConfig();
+    await loadBackupConfig();
+    await getLocalIps();
+    await checkBinaryVersion();
+    await checkWebvaultVersion();
+    await validateEnvironment();
+    await checkAllVersions();
+    await listBackups();
+  };
+
+  const initAndStart = async () => {
+    await setupListeners();
+  };
+
+  return {
+    isRunning,
+    setIsRunning,
+    binaryVersion,
+    setBinaryVersion,
+    binaryLatestVersion,
+    setBinaryLatestVersion,
+    webvaultVersion,
+    setWebvaultVersion,
+    webvaultLatestVersion,
+    setWebvaultLatestVersion,
+    releases,
+    setReleases,
+    networkIps,
+    setNetworkIps,
+    selectedIp,
+    setSelectedIp,
+    config,
+    setConfig,
+    logs,
+    setLogs,
+    isCheckingUpdate,
+    setIsCheckingUpdate,
+    isDownloading,
+    setIsDownloading,
+    downloadProgress,
+    setDownloadProgress,
+    downloadFile,
+    validation,
+    setValidation,
+    opensslAvailable,
+    setOpensslAvailable,
+    isGeneratingCerts,
+    setIsGeneratingCerts,
+    error,
+    setError,
+    loadConfig,
+    saveConfig,
+    checkAllVersions,
+    downloadBinary,
+    downloadWebvault,
+    getLocalIps,
+    updateDomainWithIp,
+    generateCertificates,
+    validateEnvironment,
+    startVaultwarden,
+    stopVaultwarden,
+    getStatus,
+    addLog,
+    clearLogs,
+    setupListeners,
+    initAndStart,
+    backupConfig,
+    setBackupConfig,
+    backups,
+    setBackups,
+    lastBackup,
+    setLastBackup,
+    isBackingUp,
+    setIsBackingUp,
+    activityStatus,
+    setActivityStatus,
+    showBackupWarning,
+    setShowBackupWarning,
+    scheduledTaskExists,
+    setScheduledTaskExists,
+    loadBackupConfig,
+    saveBackupConfig,
+    listBackups,
+    checkDatabaseActivity,
+    performBackup,
+    forceBackup,
+    deleteBackup,
+    restoreBackup,
+    selectBackupDirectory,
+  };
+}
+
+export const appStore = createRoot(createAppStore);

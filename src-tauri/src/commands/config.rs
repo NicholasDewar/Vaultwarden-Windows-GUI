@@ -1,0 +1,77 @@
+use std::fs;
+use std::path::PathBuf;
+
+use super::process::VaultwardenConfig;
+
+fn get_config_path() -> Result<PathBuf, String> {
+    let config_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    let config_path = config_dir.join("config.json");
+
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    Ok(config_path)
+}
+
+fn get_language_path() -> Result<PathBuf, String> {
+    let config_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    let config_path = config_dir.join("language.json");
+
+    if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+
+    Ok(config_path)
+}
+
+#[tauri::command]
+pub fn save_config(config: VaultwardenConfig) -> Result<(), String> {
+    let config_path = get_config_path()?;
+    let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    fs::write(&config_path, json).map_err(|e| e.to_string())?;
+    log::info!("Config saved to {:?}", config_path);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn load_config() -> Result<VaultwardenConfig, String> {
+    let config_path = get_config_path()?;
+
+    if !config_path.exists() {
+        log::info!("Config file not found, using default");
+        return Ok(VaultwardenConfig::default());
+    }
+
+    let json = fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+    let config: VaultwardenConfig = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    log::info!("Config loaded from {:?}", config_path);
+    Ok(config)
+}
+
+#[tauri::command]
+pub fn set_language(lang: String) -> Result<(), String> {
+    let path = get_language_path()?;
+    fs::write(&path, lang).map_err(|e| e.to_string())?;
+    log::info!("Language set to: {:?}", path);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_language() -> Result<String, String> {
+    let path = get_language_path()?;
+
+    if !path.exists() {
+        return Ok("zh".to_string());
+    }
+
+    fs::read_to_string(&path).map_err(|e| e.to_string())
+}
