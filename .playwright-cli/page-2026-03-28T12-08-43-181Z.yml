@@ -1,0 +1,96 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]: 🔐 Vaultwarden Manager
+    - generic [ref=e7]:
+      - button "⚙️ 主页面" [ref=e8] [cursor=pointer]
+      - button "💾 备份" [ref=e9] [cursor=pointer]
+    - generic [ref=e10]:
+      - combobox [ref=e11] [cursor=pointer]:
+        - option "中文" [selected]
+        - option "English"
+      - button "↻ 检查更新" [ref=e12] [cursor=pointer]
+  - main [ref=e13]:
+    - generic [ref=e14]:
+      - generic [ref=e15]: 状态
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e18]:
+            - generic [ref=e19]: ⚙️
+            - generic [ref=e20]:
+              - generic [ref=e21]: Vaultwarden
+              - generic [ref=e22]: 未安装
+          - generic [ref=e23]: ✗ 未安装
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - generic [ref=e26]: 🌐
+            - generic [ref=e27]:
+              - generic [ref=e28]: Web Vault
+              - generic [ref=e29]: 未安装
+          - generic [ref=e30]: ✗ 未安装
+        - generic [ref=e31]:
+          - generic [ref=e32]:
+            - generic [ref=e33]: 🔒
+            - generic [ref=e34]:
+              - generic [ref=e35]: 证书
+              - generic [ref=e36]: 缺失
+          - generic [ref=e37]: ✗
+    - generic [ref=e38]:
+      - generic [ref=e39]: 已停止
+      - generic [ref=e40]:
+        - generic [ref=e42]: ✗
+        - generic [ref=e43]: 已停止
+        - generic [ref=e44]:
+          - generic [ref=e45]: 🌐
+          - combobox [ref=e46] [cursor=pointer]
+          - button "↻" [ref=e47] [cursor=pointer]
+      - button "🚀 启动 Vaultwarden" [ref=e48] [cursor=pointer]
+    - generic [ref=e49]:
+      - generic [ref=e50]: 环境状态
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - generic [ref=e53]: ⚙️
+          - generic [ref=e54]: vaultwarden.exe
+          - generic [ref=e55]: 缺失
+          - button "下载" [disabled] [ref=e56]
+        - generic [ref=e57]:
+          - generic [ref=e58]: 🌐
+          - generic [ref=e59]: web-vault
+          - generic [ref=e60]: 缺失
+          - button "下载" [ref=e61] [cursor=pointer]
+        - generic [ref=e62]:
+          - generic [ref=e63]: 🔒
+          - generic [ref=e64]: 证书
+          - generic [ref=e65]: 缺失
+          - button "生成证书" [ref=e66] [cursor=pointer]
+    - generic [ref=e67]:
+      - generic [ref=e68]: 配置
+      - generic [ref=e69]:
+        - generic [ref=e70]:
+          - generic [ref=e71]: 地址
+          - textbox [ref=e72]: 0.0.0.0
+        - generic [ref=e73]:
+          - generic [ref=e74]: 端口
+          - spinbutton [ref=e75]: "8443"
+        - generic [ref=e76]:
+          - generic [ref=e77]: 域名
+          - textbox "https://192.168.1.100:8443" [ref=e78]: https://127.0.0.1:8443
+        - generic [ref=e80]:
+          - checkbox [checked] [ref=e81] [cursor=pointer]
+          - generic [ref=e82]: 启用 TLS
+        - generic [ref=e83]:
+          - generic [ref=e84]: 证书路径
+          - textbox [ref=e85]: localhost.crt
+        - generic [ref=e86]:
+          - generic [ref=e87]: 密钥路径
+          - textbox [ref=e88]: localhost.key
+        - generic [ref=e89]:
+          - generic [ref=e90]: 数据文件夹
+          - textbox [ref=e91]: data
+        - button "保存配置" [ref=e93] [cursor=pointer]
+    - generic [ref=e94]:
+      - generic [ref=e95]:
+        - generic [ref=e96]: 日志
+        - generic [ref=e97]:
+          - button "💾 保存日志" [disabled] [ref=e98]
+          - button "🗑 清空" [disabled] [ref=e99]
+      - generic [ref=e102]: 暂无日志
