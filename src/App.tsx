@@ -4,6 +4,7 @@ import { appStore } from "./stores/appStore";
 import { ConfigPanel } from "./components/ConfigPanel";
 import { LogViewer } from "./components/LogViewer";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
+import { ThemeSwitcher } from "./components/ThemeSwitcher";
 import { StatusBar } from "./components/StatusBar";
 import { EnvironmentPanel } from "./components/EnvironmentPanel";
 import { ServiceControl } from "./components/ServiceControl";
@@ -108,6 +109,7 @@ const AppContent: Component = () => {
           </button>
         </div>
         <div class="header-right">
+          <ThemeSwitcher />
           <LanguageSwitcher />
           <button
             class="btn btn-secondary"

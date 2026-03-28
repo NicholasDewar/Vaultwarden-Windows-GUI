@@ -61,14 +61,16 @@ export const ConfigPanel: Component<ConfigPanelProps> = (props) => {
         </div>
         
         <div class="form-group full-width">
-          <div class="form-checkbox-wrapper">
-            <input
-              type="checkbox"
-              class="form-checkbox"
-              checked={store.config().enable_tls}
-              onChange={(e) => handleInputChange("enable_tls", e.currentTarget.checked)}
-            />
-            <span>{t("config.enableTls")}</span>
+          <div class="toggle-wrapper">
+            <span class="toggle-label">{t("config.enableTls")}</span>
+            <button
+              class={`toggle-switch ${store.config().enable_tls ? "active" : ""}`}
+              onClick={() => handleInputChange("enable_tls", !store.config().enable_tls)}
+              role="switch"
+              aria-checked={store.config().enable_tls}
+            >
+              <span class="toggle-slider" />
+            </button>
           </div>
         </div>
         

@@ -54,24 +54,26 @@ export const BackupSettings: Component = () => {
       
       <div class="backup-settings-form">
         <div class="backup-setting-row">
-          <label class="form-checkbox-wrapper">
-            <input
-              type="checkbox"
-              class="form-checkbox"
-              checked={store.backupConfig().enabled}
-              onChange={handleToggleEnabled}
-            />
-            <span>{t("backup.enable")}</span>
-          </label>
+          <div class="toggle-wrapper">
+            <span class="toggle-label">{t("backup.enable")}</span>
+            <button
+              class={`toggle-switch ${store.backupConfig().enabled ? "active" : ""}`}
+              onClick={handleToggleEnabled}
+              role="switch"
+              aria-checked={store.backupConfig().enabled}
+            >
+              <span class="toggle-slider" />
+            </button>
+          </div>
         </div>
 
         <div class="backup-setting-row">
           <div class="form-group">
             <label class="form-label">{t("backup.interval")}</label>
-            <div class="input-with-suffix">
+            <div class="input-with-suffix modern-input">
               <input
                 type="number"
-                class="form-input"
+                class="form-input styled-number"
                 value={store.backupConfig().interval_minutes}
                 onInput={(e) => handleIntervalChange(e.currentTarget.value)}
                 min="1"
@@ -86,10 +88,10 @@ export const BackupSettings: Component = () => {
         <div class="backup-setting-row">
           <div class="form-group">
             <label class="form-label">{t("backup.retention")}</label>
-            <div class="input-with-suffix">
+            <div class="input-with-suffix modern-input">
               <input
                 type="number"
-                class="form-input"
+                class="form-input styled-number"
                 value={store.backupConfig().retention_count}
                 onInput={(e) => handleRetentionChange(e.currentTarget.value)}
                 min="1"
@@ -104,7 +106,7 @@ export const BackupSettings: Component = () => {
         <div class="backup-setting-row">
           <div class="form-group">
             <label class="form-label">{t("backup.backupDir")}</label>
-            <div class="input-with-button">
+            <div class="input-with-button modern-input">
               <input
                 type="text"
                 class="form-input"
@@ -114,11 +116,14 @@ export const BackupSettings: Component = () => {
                 disabled={!store.backupConfig().enabled}
               />
               <button
-                class="btn btn-secondary btn-small"
+                class="btn btn-secondary btn-small btn-icon-only"
                 onClick={handleBrowse}
                 disabled={!store.backupConfig().enabled}
+                title={t("backup.browse")}
               >
-                📁 {t("backup.browse")}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                </svg>
               </button>
             </div>
           </div>
@@ -130,14 +135,23 @@ export const BackupSettings: Component = () => {
             onClick={handleSave}
             disabled={!store.backupConfig().enabled}
           >
-            💾 {t("backup.save")}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17,21 17,13 7,13 7,21" />
+              <polyline points="7,3 7,8 15,8" />
+            </svg>
+            {t("backup.save")}
           </button>
           <Show when={store.scheduledTaskExists()}>
             <button
               class="btn btn-danger btn-small"
               onClick={handleDeleteTask}
             >
-              🗑 {t("backup.deleteTask")}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3,6 5,6 21,6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+              {t("backup.deleteTask")}
             </button>
           </Show>
         </div>
