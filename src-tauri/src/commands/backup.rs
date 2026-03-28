@@ -50,18 +50,18 @@ fn get_backup_dir(config: &BackupConfig) -> String {
         .unwrap_or_else(|| DEFAULT_BACKUP_DIR.to_string())
 }
 
-fn get_database_path() -> String {
-    DATABASE_PATH.to_string()
+fn resolve_backup_dir(backup_dir: Option<String>) -> Result<String, String> {
+    match backup_dir {
+        Some(d) => Ok(d),
+        None => {
+            let config = get_backup_config()?;
+            Ok(get_backup_dir(&config))
+        }
+    }
 }
 
-fn format_size(size: u64) -> String {
-    if size < 1024 {
-        format!("{} B", size)
-    } else if size < 1024 * 1024 {
-        format!("{:.1} KB", size as f64 / 1024.0)
-    } else {
-        format!("{:.1} MB", size as f64 / (1024.0 * 1024.0))
-    }
+fn get_database_path() -> String {
+    DATABASE_PATH.to_string()
 }
 
 #[tauri::command]
@@ -109,7 +109,7 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
         return Err(format!("Database not found at: {}", db_path));
     }
 
-    let dir = backup_dir.unwrap_or_else(|| DEFAULT_BACKUP_DIR.to_string());
+    let dir = resolve_backup_dir(backup_dir)?;
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
     let timestamp = Local::now().format("%Y%m%d-%H%M").to_string();
@@ -147,7 +147,7 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
 
 #[tauri::command]
 pub fn list_backups(backup_dir: Option<String>) -> Result<Vec<BackupInfo>, String> {
-    let dir = backup_dir.unwrap_or_else(|| DEFAULT_BACKUP_DIR.to_string());
+    let dir = resolve_backup_dir(backup_dir)?;
 
     if !Path::new(&dir).exists() {
         return Ok(Vec::new());
@@ -200,7 +200,7 @@ pub fn cleanup_old_backups(
     backup_dir: Option<String>,
     retention_count: u32,
 ) -> Result<u32, String> {
-    let dir = backup_dir.unwrap_or_else(|| DEFAULT_BACKUP_DIR.to_string());
+    let dir = resolve_backup_dir(backup_dir)?;
 
     if !Path::new(&dir).exists() {
         return Ok(0);
@@ -295,7 +295,7 @@ pub fn create_scheduled_task(interval_minutes: u32) -> Result<(), String> {
 
     let task_name = "VaultwardenManager_Backup";
 
-    let delete_output = Command::new("schtasks")
+    let _delete_output = Command::new("schtasks")
         .args(&["/Delete", "/TN", task_name, "/F"])
         .output();
 

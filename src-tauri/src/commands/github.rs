@@ -1,8 +1,9 @@
 use flate2::read::GzDecoder;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{self, Read, Write};
 use std::path::Path;
+use tauri::Emitter;
 use tar::Archive;
 use tokio::io::AsyncWriteExt;
 
@@ -260,9 +261,9 @@ pub async fn download_webvault(window: tauri::Window) -> Result<String, String> 
         if let Ok(entry) = entry {
             let path = entry.path();
             if path.is_dir() {
-                std::fs::remove_dir_all(&path);
+                let _ = std::fs::remove_dir_all(&path);
             } else {
-                std::fs::remove_file(&path);
+                let _ = std::fs::remove_file(&path);
             }
         }
     }

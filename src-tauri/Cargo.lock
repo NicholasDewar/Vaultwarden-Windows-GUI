@@ -5147,6 +5147,7 @@ dependencies = [
  "chrono",
  "env_logger",
  "flate2",
+ "futures-util",
  "local-ip-address",
  "log",
  "reqwest 0.12.28",

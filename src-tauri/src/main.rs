@@ -6,7 +6,7 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState},
-    Manager, WindowEvent,
+    Emitter, Manager, WindowEvent,
 };
 
 mod commands;
@@ -127,6 +127,8 @@ fn main() {
             commands::process::check_openssl_available,
             commands::config::save_config,
             commands::config::load_config,
+            commands::config::get_language,
+            commands::config::set_language,
             commands::ip::get_local_ips,
             commands::logs::get_logs,
             commands::logs::add_log,

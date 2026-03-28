@@ -1,5 +1,6 @@
 use std::path::Path;
 use std::process::Stdio;
+use tauri::Emitter;
 use std::sync::Mutex;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
@@ -117,9 +118,12 @@ pub async fn start_vaultwarden(
 #[tauri::command]
 pub async fn stop_vaultwarden() -> Result<(), String> {
     let process_mutex = VAULTWARDEN_PROCESS.get_or_init(|| Mutex::new(None));
-    let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
+    let child_opt = {
+        let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
+        guard.take()
+    };
 
-    if let Some(mut child) = guard.take() {
+    if let Some(mut child) = child_opt {
         child.kill().await.map_err(|e| e.to_string())?;
         child.wait().await.map_err(|e| e.to_string())?;
         log::info!("Vaultwarden stopped");
