@@ -1,14 +1,14 @@
-use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::Stdio;
 use std::sync::Mutex;
-use std::thread;
 use tauri::Emitter;
+use tokio::io::{AsyncBufReadExt, BufReader as AsyncBufReader};
+use tokio::process::Command;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<std::process::Child>>> =
+pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<tokio::process::Child>>> =
     std::sync::OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -57,8 +57,8 @@ pub struct CertToolsStatus {
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[tauri::command]
-pub fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window) -> Result<(), String> {
-    let _ = stop_vaultwarden();
+pub async fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window) -> Result<(), String> {
+    let _ = stop_vaultwarden().await;
 
     let vaultwarden_exe = find_vaultwarden_exe()?;
 
@@ -95,9 +95,9 @@ pub fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window) -> Re
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
     let window_clone = window.clone();
-    thread::spawn(move || {
-        let reader = BufReader::new(stdout);
-        for line in reader.lines().map_while(Result::ok) {
+    tokio::spawn(async move {
+        let mut reader = AsyncBufReader::new(stdout).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
             let _ = window_clone.emit(
                 "vaultwarden-log",
                 serde_json::json!({
@@ -109,9 +109,9 @@ pub fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window) -> Re
     });
 
     let window_clone = window.clone();
-    thread::spawn(move || {
-        let reader = BufReader::new(stderr);
-        for line in reader.lines().map_while(Result::ok) {
+    tokio::spawn(async move {
+        let mut reader = AsyncBufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
             let level = if line.to_lowercase().contains("error") {
                 "ERROR"
             } else if line.to_lowercase().contains("warn") {
@@ -140,7 +140,7 @@ pub fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window) -> Re
 }
 
 #[tauri::command]
-pub fn stop_vaultwarden() -> Result<(), String> {
+pub async fn stop_vaultwarden() -> Result<(), String> {
     let process_mutex = VAULTWARDEN_PROCESS.get_or_init(|| Mutex::new(None));
     let child_opt = {
         let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
@@ -148,8 +148,8 @@ pub fn stop_vaultwarden() -> Result<(), String> {
     };
 
     if let Some(mut child) = child_opt {
-        child.kill().map_err(|e| e.to_string())?;
-        child.wait().map_err(|e| e.to_string())?;
+        child.kill().await.map_err(|e| e.to_string())?;
+        child.wait().await.map_err(|e| e.to_string())?;
         log::info!("Vaultwarden stopped");
     }
 
