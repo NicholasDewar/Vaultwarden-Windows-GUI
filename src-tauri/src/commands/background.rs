@@ -79,18 +79,25 @@ impl BackgroundTasks {
     }
 }
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 fn check_openssl_internal() -> bool {
-    std::process::Command::new("openssl")
-        .arg("version")
-        .output()
+    let mut cmd = std::process::Command::new("openssl");
+    cmd.arg("version");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.output()
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
 
 fn check_mkcert_internal() -> bool {
-    std::process::Command::new("mkcert")
-        .arg("-version")
-        .output()
+    let mut cmd = std::process::Command::new("mkcert");
+    cmd.arg("-version");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.output()
         .map(|o| o.status.success())
         .unwrap_or(false)
 }

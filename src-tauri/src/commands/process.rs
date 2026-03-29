@@ -182,10 +182,11 @@ fn find_vaultwarden_exe() -> Result<String, String> {
         return Ok(exe_in_dir.to_string_lossy().to_string());
     }
 
-    if let Ok(output) = std::process::Command::new("where")
-        .arg("vaultwarden.exe")
-        .output()
-    {
+    let mut cmd = std::process::Command::new("where");
+    cmd.arg("vaultwarden.exe");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    if let Ok(output) = cmd.output() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         if let Some(line) = stdout.lines().next() {
             let path = line.trim();
@@ -278,23 +279,31 @@ pub fn generate_certificates(
 
 #[tauri::command]
 pub fn check_openssl_available() -> bool {
-    std::process::Command::new("openssl")
-        .arg("version")
-        .output()
+    let mut cmd = std::process::Command::new("openssl");
+    cmd.arg("version");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.output()
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
 
 #[tauri::command]
 pub fn check_cert_tools_available() -> Result<CertToolsStatus, String> {
-    let openssl_available = std::process::Command::new("openssl")
-        .arg("version")
+    let mut openssl_cmd = std::process::Command::new("openssl");
+    openssl_cmd.arg("version");
+    #[cfg(windows)]
+    openssl_cmd.creation_flags(CREATE_NO_WINDOW);
+    let openssl_available = openssl_cmd
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
 
-    let mkcert_available = std::process::Command::new("mkcert")
-        .arg("-version")
+    let mut mkcert_cmd = std::process::Command::new("mkcert");
+    mkcert_cmd.arg("-version");
+    #[cfg(windows)]
+    mkcert_cmd.creation_flags(CREATE_NO_WINDOW);
+    let mkcert_available = mkcert_cmd
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
@@ -325,9 +334,11 @@ fn check_mkcert_ca_installed() -> bool {
 
 #[tauri::command]
 pub fn check_mkcert_available() -> bool {
-    std::process::Command::new("mkcert")
-        .arg("-version")
-        .output()
+    let mut cmd = std::process::Command::new("mkcert");
+    cmd.arg("-version");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.output()
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
@@ -339,8 +350,11 @@ pub fn is_mkcert_ca_installed() -> bool {
 
 #[tauri::command]
 pub fn install_mkcert_ca() -> Result<(), String> {
-    let output = std::process::Command::new("mkcert")
-        .arg("-install")
+    let mut cmd = std::process::Command::new("mkcert");
+    cmd.arg("-install");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to run mkcert -install: {}", e))?;
 
@@ -367,17 +381,20 @@ pub fn generate_certificates_with_tool(
 }
 
 fn generate_cert_with_mkcert(cert_path: &str, key_path: &str, ip: &str) -> Result<(), String> {
-    let output = std::process::Command::new("mkcert")
-        .args(&[
-            "-key-file",
-            key_path,
-            "-cert-file",
-            cert_path,
-            "localhost",
-            "127.0.0.1",
-            "::1",
-            ip,
-        ])
+    let mut cmd = std::process::Command::new("mkcert");
+    cmd.args(&[
+        "-key-file",
+        key_path,
+        "-cert-file",
+        cert_path,
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        ip,
+    ]);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    let output = cmd
         .output()
         .map_err(|e| {
             format!(
@@ -403,28 +420,31 @@ fn generate_cert_with_mkcert(cert_path: &str, key_path: &str, ip: &str) -> Resul
 }
 
 fn generate_cert_with_openssl(cert_path: &str, key_path: &str, ip: &str) -> Result<(), String> {
-    let output = std::process::Command::new("openssl")
-        .args(&[
-            "req",
-            "-x509",
-            "-newkey",
-            "rsa:2048",
-            "-nodes",
-            "-days",
-            "3650",
-            "-keyout",
-            key_path,
-            "-out",
-            cert_path,
-            "-subj",
-            "/CN=localhost",
-            "-addext",
-            &format!("subjectAltName=DNS:localhost,IP:127.0.0.1,IP:{}", ip),
-        ])
+    let mut cmd = std::process::Command::new("openssl");
+    cmd.args(&[
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-nodes",
+        "-days",
+        "3650",
+        "-keyout",
+        key_path,
+        "-out",
+        cert_path,
+        "-subj",
+        "/CN=localhost",
+        "-addext",
+        &format!("subjectAltName=DNS:localhost,IP:127.0.0.1,IP:{}", ip),
+    ]);
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    let output = cmd
         .output()
         .map_err(|e| {
             format!(
-                "Failed to run openssl: {}. Make sure OpenSSL is installed.",
+                "Failed to run OpenSSL: {}. Make sure OpenSSL is installed.",
                 e
             )
         })?;
@@ -432,10 +452,18 @@ fn generate_cert_with_openssl(cert_path: &str, key_path: &str, ip: &str) -> Resu
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!(
-            "Failed to generate certificates with openssl: {}",
+            "Failed to generate certificates with OpenSSL: {}",
             stderr
         ));
     }
+
+    log::info!(
+        "Generated certificates with OpenSSL: {} and {}",
+        cert_path,
+        key_path
+    );
+    Ok(())
+}
 
     log::info!(
         "Generated certificates with openssl: {} and {}",
