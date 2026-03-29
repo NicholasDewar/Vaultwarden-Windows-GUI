@@ -29,6 +29,8 @@ export const ConfigPanel: Component<ConfigPanelProps> = (props) => {
       <div class="panel-title">{t("config.title")}</div>
       
       <div class="config-form">
+        <div class="form-section-title">{t("config.connection")}</div>
+        
         <div class="form-group">
           <label class="form-label">{t("config.address")}</label>
           <input
@@ -59,6 +61,8 @@ export const ConfigPanel: Component<ConfigPanelProps> = (props) => {
             placeholder="https://192.168.1.100:8443"
           />
         </div>
+        
+        <div class="form-section-title">{t("config.tlsSettings")}</div>
         
         <div class="form-group full-width">
           <div class="toggle-wrapper">
@@ -95,7 +99,9 @@ export const ConfigPanel: Component<ConfigPanelProps> = (props) => {
           </div>
         </Show>
         
-        <div class="form-group">
+        <div class="form-section-title">{t("config.dataStorage")}</div>
+        
+        <div class="form-group full-width">
           <label class="form-label">{t("config.dataFolder")}</label>
           <input
             type="text"

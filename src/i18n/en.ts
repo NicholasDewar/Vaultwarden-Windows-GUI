@@ -66,6 +66,9 @@ export const en = {
   },
   config: {
     title: "Configuration",
+    connection: "Connection",
+    tlsSettings: "TLS Settings",
+    dataStorage: "Data Storage",
     address: "Address",
     port: "Port",
     domain: "Domain",

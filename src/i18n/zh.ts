@@ -66,6 +66,9 @@ export const zh = {
   },
   config: {
     title: "配置",
+    connection: "连接",
+    tlsSettings: "TLS 设置",
+    dataStorage: "数据存储",
     address: "地址",
     port: "端口",
     domain: "域名",

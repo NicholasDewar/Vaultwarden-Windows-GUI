@@ -12,6 +12,7 @@ import { EnvironmentPanel } from "./components/EnvironmentPanel";
 import { ServiceControl } from "./components/ServiceControl";
 import { BackupSettings } from "./components/BackupSettings";
 import { BackupPanel } from "./components/BackupPanel";
+import { Settings, Database, RefreshCw } from "lucide-solid";
 import "./styles/global.css";
 
 type TabType = "main" | "backup";
@@ -100,21 +101,27 @@ const AppContent: Component = () => {
   return (
     <div class="app">
       <header class="header">
-        <div class="header-left">
-          <span class="app-title">🔐 Vaultwarden Manager</span>
+          <div class="header-left">
+          <span class="app-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            Vaultwarden Manager
+          </span>
         </div>
         <div class="header-tabs">
           <button
             class={`tab-btn ${activeTab() === "main" ? "active" : ""}`}
             onClick={() => setActiveTab("main")}
           >
-            ⚙️ {t("tabs.main", "Main")}
+            <Settings size={16} /> {t("tabs.main")}
           </button>
           <button
             class={`tab-btn ${activeTab() === "backup" ? "active" : ""}`}
             onClick={() => setActiveTab("backup")}
           >
-            💾 {t("tabs.backup", "Backup")}
+            <Database size={16} /> {t("tabs.backup")}
           </button>
         </div>
         <div class="header-right">
@@ -125,7 +132,7 @@ const AppContent: Component = () => {
             onClick={handleCheckUpdate}
             disabled={store.isCheckingUpdate()}
           >
-            <Show when={store.isCheckingUpdate()} fallback={`↻ ${t("status.checkUpdate")}`}>
+            <Show when={store.isCheckingUpdate()} fallback={<><RefreshCw size={16} /> {t("status.checkUpdate")}</>}>
               <span class="spinner"></span>
               {t("app.checking")}
             </Show>
