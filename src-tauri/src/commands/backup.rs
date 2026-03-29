@@ -32,16 +32,19 @@ async fn get_sqlite3_download_url() -> Result<String, String> {
         .await
         .map_err(|e| e.to_string())?;
 
-    let comment_start = html.find("<!--").ok_or("Failed to find HTML comment start")?;
-    let comment_end = html.find("-->").ok_or("Failed to find HTML comment end")?;
-    let comment_content = &html[comment_start + 4..comment_end];
+    if let Some(start) = html.find("<!-- Download product data") {
+        if let Some(end) = html[start..].find("-->") {
+            let comment = &html[start..start + end];
 
-    for line in comment_content.lines() {
-        if line.contains("sqlite-tools-win-x64") {
-            let parts: Vec<&str> = line.split(',').collect();
-            if parts.len() >= 3 {
-                let relative_url = parts[2].trim();
-                return Ok(format!("https://sqlite.org/{}", relative_url));
+            for line in comment.lines() {
+                let trimmed = line.trim();
+                if trimmed.starts_with("PRODUCT") && trimmed.contains("sqlite-tools-win-x64") {
+                    let parts: Vec<&str> = trimmed.split(',').collect();
+                    if parts.len() >= 3 {
+                        let relative_url = parts[2].trim();
+                        return Ok(format!("https://sqlite.org/{}", relative_url));
+                    }
+                }
             }
         }
     }
