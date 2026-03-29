@@ -84,6 +84,9 @@ export const EnvironmentPanel: Component<EnvironmentPanelProps> = (props) => {
               </Show>
             </button>
           </Show>
+          <Show when={store.validation()?.webvault_exists && store.hasWebvaultUpdate()}>
+            <span class="status-badge warning"><ArrowUp size={12} /> {t("status.updateAvailable")}</span>
+          </Show>
         </div>
 
         <div class={`env-item ${store.validation()?.cert_exists ? "ready" : ""}`}>

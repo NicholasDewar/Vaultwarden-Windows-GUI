@@ -505,6 +505,9 @@ pub struct BinaryUpdateInfo {
     pub current_version: Option<String>,
     pub latest_version: Option<String>,
     pub has_update: bool,
+    pub webvault_version: Option<String>,
+    pub webvault_latest: Option<String>,
+    pub webvault_has_update: bool,
 }
 
 fn normalize_version(version: &str) -> String {
@@ -525,9 +528,24 @@ pub async fn check_binary_update() -> Result<BinaryUpdateInfo, String> {
         _ => false,
     };
 
+    let webvault_version = get_webvault_version();
+    let webvault_normalized = webvault_version.as_ref().map(|v| normalize_version(v));
+    
+    let webvault_latest = get_latest_webvault_version().await.ok();
+    let webvault_latest_normalized = webvault_latest.as_ref().map(|v| normalize_version(v));
+    
+    let webvault_has_update = match (&webvault_normalized, &webvault_latest_normalized) {
+        (Some(cur), Some(lat)) => compare_versions(cur, lat) < 0,
+        (None, Some(_)) => true,
+        _ => false,
+    };
+
     Ok(BinaryUpdateInfo {
         current_version: current,
         latest_version: latest,
         has_update,
+        webvault_version,
+        webvault_latest,
+        webvault_has_update,
     })
 }
