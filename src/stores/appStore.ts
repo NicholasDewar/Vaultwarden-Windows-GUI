@@ -172,8 +172,8 @@ function createAppStore() {
     try {
       const exists = await invoke<boolean>("check_webvault");
       if (exists) {
-        const version = await invoke<string | null>("get_webvault_version");
-        setWebvaultVersion(version || "installed");
+        const versionInfo = await invoke<WebVaultVersion>("get_latest_webvault_version");
+        setWebvaultVersion(versionInfo.version || "installed");
       } else {
         setWebvaultVersion("");
       }

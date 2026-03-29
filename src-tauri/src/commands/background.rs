@@ -206,7 +206,7 @@ fn get_webvault_version_internal() -> Option<String> {
 }
 
 fn validate_environment_internal() -> ValidationResult {
-    let config = VaultwardenConfig::default();
+    let config = crate::commands::config::load_config_internal();
     
     let binary_exists = std::path::Path::new("vaultwarden.exe").exists();
     let webvault_exists = std::path::Path::new("web-vault/index.html").exists();
