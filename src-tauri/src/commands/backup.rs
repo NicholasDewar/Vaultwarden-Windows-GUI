@@ -41,7 +41,7 @@ pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
         return Ok(sqlite3_exe.to_string_lossy().to_string());
     }
 
-    let app_dir = sqlite3_exe.parent().unwrap_or(&std::path::PathBuf::from("."));
+    let app_dir = sqlite3_exe.parent().unwrap_or_else(|| std::path::PathBuf::from(".").as_path());
     fs::create_dir_all(app_dir).map_err(|e| e.to_string())?;
 
     let zip_path = app_dir.join("sqlite3.zip");
