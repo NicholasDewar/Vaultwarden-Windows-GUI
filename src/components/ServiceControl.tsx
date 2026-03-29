@@ -13,8 +13,16 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
   const store = appStore;
   const [ipDropdownOpen, setIpDropdownOpen] = createSignal(false);
 
-  const handleIpSelect = (ip: string) => {
+  const handleIpSelect = async (ip: string) => {
     store.setSelectedIp(ip);
+    store.updateDomainWithIp(ip);
+    try {
+      await store.saveConfig(store.config());
+      store.setSuccessMessage(t("config.saved"));
+      setTimeout(() => store.setSuccessMessage(null), 2000);
+    } catch (e) {
+      console.error("Auto-save failed:", e);
+    }
     setIpDropdownOpen(false);
   };
 
@@ -88,6 +96,10 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
             <RefreshCw size={16} />
           </button>
         </div>
+
+        <Show when={store.successMessage()}>
+          <div class="toast toast-success">{store.successMessage()}</div>
+        </Show>
       </div>
 
       <Show

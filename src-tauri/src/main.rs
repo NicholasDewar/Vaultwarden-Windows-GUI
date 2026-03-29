@@ -36,6 +36,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             commands::background::BackgroundTasks::new(app.handle().clone()).start();
 
@@ -135,15 +136,9 @@ fn main() {
             commands::process::is_mkcert_ca_installed,
             commands::process::install_mkcert_ca,
             commands::process::generate_certificates_with_tool,
-            commands::config::save_config,
-            commands::config::load_config,
-            commands::config::get_language,
-            commands::config::set_language,
             commands::ip::get_local_ips,
             commands::logs::get_logs,
             commands::logs::add_log,
-            commands::backup::get_backup_config,
-            commands::backup::save_backup_config,
             commands::backup::backup_database,
             commands::backup::list_backups,
             commands::backup::delete_backup,

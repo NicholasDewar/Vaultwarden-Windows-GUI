@@ -2,6 +2,7 @@ import { createSignal, createRoot } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import { storeService, VaultwardenConfig as StoreVaultwardenConfig } from "./storeService";
 
 export interface ReleaseInfo {
   tag: string;
@@ -122,6 +123,7 @@ function createAppStore() {
   const [certToolsStatus, setCertToolsStatus] = createSignal<CertToolsStatus | null>(null);
   const [isGeneratingCerts, setIsGeneratingCerts] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
 
   const [backupConfig, setBackupConfig] = createSignal<BackupConfig>({
     enabled: false,
@@ -139,20 +141,30 @@ function createAppStore() {
   const [sqlite3Installed, setSqlite3Installed] = createSignal(false);
   const [needsSqlite3Download, setNeedsSqlite3Download] = createSignal(false);
 
+  const defaultConfig: VaultwardenConfig = {
+    address: "0.0.0.0",
+    port: 8443,
+    domain: "https://127.0.0.1:8443",
+    enable_tls: true,
+    cert_path: "localhost.crt",
+    key_path: "localhost.key",
+    data_folder: "data",
+  };
+
   const loadConfig = async () => {
     try {
-      const cfg = await invoke<VaultwardenConfig>("load_config");
-      setConfig(cfg);
+      const cfg = await storeService.getConfig();
+      setConfig(cfg || defaultConfig);
       console.info("Config loaded successfully");
     } catch (e) {
       console.error("Failed to load config:", e);
-      throw e;
+      setConfig(defaultConfig);
     }
   };
 
   const saveConfig = async (cfg: VaultwardenConfig) => {
     try {
-      await invoke("save_config", { config: cfg });
+      await storeService.setConfig(cfg);
       setConfig(cfg);
     } catch (e) {
       console.error("Failed to save config:", e);
@@ -424,10 +436,18 @@ function createAppStore() {
     }
   };
 
+  const defaultBackupConfig: BackupConfig = {
+    enabled: false,
+    interval_minutes: 10,
+    retention_count: 7,
+    custom_dir: null,
+    require_idle: false,
+  };
+
   const loadBackupConfig = async () => {
     try {
-      const cfg = await invoke<BackupConfig>("get_backup_config");
-      setBackupConfig(cfg);
+      const cfg = await storeService.getBackupConfig();
+      setBackupConfig(cfg || defaultBackupConfig);
       const exists = await invoke<boolean>("check_scheduled_task_exists");
       setScheduledTaskExists(exists);
     } catch (e) {
@@ -437,7 +457,7 @@ function createAppStore() {
 
   const saveBackupConfig = async (cfg: BackupConfig) => {
     try {
-      await invoke("save_backup_config", { config: cfg });
+      await storeService.setBackupConfig(cfg);
       setBackupConfig(cfg);
       if (cfg.enabled) {
         await invoke("create_scheduled_task", { intervalMinutes: cfg.interval_minutes });
@@ -744,6 +764,8 @@ function createAppStore() {
     setIsGeneratingCerts,
     error,
     setError,
+    successMessage,
+    setSuccessMessage,
     loadConfig,
     saveConfig,
     checkAllVersions,
