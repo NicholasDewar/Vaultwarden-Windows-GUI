@@ -5,6 +5,9 @@ use std::sync::Mutex;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<tokio::process::Child>>> =
     std::sync::OnceLock::new();
 
@@ -70,6 +73,13 @@ pub async fn start_vaultwarden(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .stdin(Stdio::null());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
 
     if config.enable_tls {
         cmd.env("ROCKET_TLS", format!(
