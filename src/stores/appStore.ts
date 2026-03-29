@@ -169,15 +169,18 @@ function createAppStore() {
     setIsCheckingUpdate(true);
     setError(null);
     try {
-      const latestBinary = await invoke<string>("get_latest_binary_version");
+      const [latestBinary, latestWebvault] = await Promise.all([
+        invoke<string>("get_latest_binary_version"),
+        invoke<WebVaultVersion>("get_latest_webvault_version"),
+      ]);
       setBinaryLatestVersion(latestBinary);
-
-      const latestWebvault = await invoke<WebVaultVersion>("get_latest_webvault_version");
       setWebvaultLatestVersion(latestWebvault.version);
 
-      await checkBinaryVersion();
-      await checkWebvaultVersion();
-      await validateEnvironment();
+      await Promise.all([
+        checkBinaryVersion(),
+        checkWebvaultVersion(),
+        validateEnvironment(),
+      ]);
     } catch (e) {
       console.error("Failed to check updates:", e);
       setError(String(e));
@@ -528,16 +531,21 @@ function createAppStore() {
       await checkAllVersions();
     });
 
-    await checkOpenssl();
-    await getStatus();
-    await loadConfig();
-    await loadBackupConfig();
-    await getLocalIps();
-    await checkBinaryVersion();
-    await checkWebvaultVersion();
+    await Promise.all([
+      checkOpenssl(),
+      getStatus(),
+      loadConfig(),
+      loadBackupConfig(),
+      getLocalIps(),
+      checkBinaryVersion(),
+      checkWebvaultVersion(),
+    ]);
+
     await validateEnvironment();
-    await checkAllVersions();
-    await listBackups();
+    await Promise.all([
+      checkAllVersions(),
+      listBackups(),
+    ]);
   };
 
   const initAndStart = async () => {
