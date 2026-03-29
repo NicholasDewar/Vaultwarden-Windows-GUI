@@ -3,6 +3,10 @@ export const en = {
     title: "Vaultwarden Manager",
     checking: "Checking...",
   },
+  tabs: {
+    main: "Main",
+    backup: "Backup",
+  },
   status: {
     title: "Status",
     vaultwarden: "Vaultwarden",

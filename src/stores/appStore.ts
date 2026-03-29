@@ -561,11 +561,11 @@ function createAppStore() {
   };
 
   const setupListeners = async () => {
-    await listen<boolean>("status-changed", (event) => {
+    listen<boolean>("status-changed", (event) => {
       setIsRunning(event.payload);
     });
 
-    await listen<CertToolsStatus>("cert-tools-status", (event) => {
+    listen<CertToolsStatus>("cert-tools-status", (event) => {
       setCertToolsStatus(event.payload);
       setOpensslAvailable(event.payload.openssl_available);
       if (event.payload.mkcert_available) {
@@ -575,7 +575,7 @@ function createAppStore() {
       }
     });
 
-    await listen<{
+    listen<{
       binaryLatestVersion: string;
       webvaultLatestVersion: string;
       binaryVersion: string;
@@ -591,11 +591,11 @@ function createAppStore() {
       setIsCheckingUpdate(false);
     });
 
-    await listen<{ level: string; message: string }>("vaultwarden-log", (event) => {
+    listen<{ level: string; message: string }>("vaultwarden-log", (event) => {
       addLog(event.payload.level, event.payload.message);
     });
 
-    await listen<{ progress: number; downloaded: number; total: number; file: string }>(
+    listen<{ progress: number; downloaded: number; total: number; file: string }>(
       "download-progress",
       (event) => {
         setDownloadProgress(event.payload.progress);
@@ -603,13 +603,13 @@ function createAppStore() {
       }
     );
 
-    await listen("download-complete", () => {
+    listen("download-complete", () => {
       setIsDownloading(false);
       setDownloadProgress(0);
       setDownloadFile("");
     });
 
-    await listen("tray-start", async () => {
+    listen("tray-start", async () => {
       if (!isRunning()) {
         try {
           await startVaultwarden();
@@ -619,7 +619,7 @@ function createAppStore() {
       }
     });
 
-    await listen("tray-check-update", async () => {
+    listen("tray-check-update", async () => {
       setIsCheckingUpdate(true);
       const [latestBinary, latestWebvault] = await Promise.all([
         invoke<string>("get_latest_binary_version"),
@@ -629,19 +629,10 @@ function createAppStore() {
       setWebvaultLatestVersion(latestWebvault.version);
       setIsCheckingUpdate(false);
     });
-
-    await Promise.all([
-      getStatus(),
-      loadConfig(),
-      loadBackupConfig(),
-      getLocalIps(),
-    ]);
-
-    await listBackups();
   };
 
   const initAndStart = async () => {
-    await setupListeners();
+    setupListeners();
   };
 
   return {

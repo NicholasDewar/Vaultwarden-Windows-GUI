@@ -17,8 +17,12 @@ impl BackgroundTasks {
     pub fn start(&self) {
         let app = self.app_handle.clone();
         spawn(async move {
-            sleep(Duration::from_millis(500)).await;
-            
+            let status = get_status_internal();
+            let _ = app.emit("status-changed", status);
+
+            let config = crate::commands::config::load_config_internal();
+            let _ = app.emit("config-loaded", config);
+
             spawn(Self::check_cert_tools(app.clone()));
             spawn(Self::check_versions(app.clone()));
             spawn(Self::poll_status(app));

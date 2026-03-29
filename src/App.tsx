@@ -1,7 +1,7 @@
 import { Component, onMount, Show, createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { WebVaultVersion } from "./stores/appStore";
-import { I18nProvider } from "./i18n";
+import { I18nProvider, useI18n } from "./i18n";
 import { appStore } from "./stores/appStore";
 import { ConfigPanel } from "./components/ConfigPanel";
 import { LogViewer } from "./components/LogViewer";
@@ -18,6 +18,7 @@ type TabType = "main" | "backup";
 
 const AppContent: Component = () => {
   const store = appStore;
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = createSignal<TabType>("main");
 
   onMount(async () => {
@@ -107,13 +108,13 @@ const AppContent: Component = () => {
             class={`tab-btn ${activeTab() === "main" ? "active" : ""}`}
             onClick={() => setActiveTab("main")}
           >
-            ⚙️ 主页面
+            ⚙️ {t("tabs.main", "Main")}
           </button>
           <button
             class={`tab-btn ${activeTab() === "backup" ? "active" : ""}`}
             onClick={() => setActiveTab("backup")}
           >
-            💾 备份
+            💾 {t("tabs.backup", "Backup")}
           </button>
         </div>
         <div class="header-right">
@@ -124,9 +125,9 @@ const AppContent: Component = () => {
             onClick={handleCheckUpdate}
             disabled={store.isCheckingUpdate()}
           >
-            <Show when={store.isCheckingUpdate()} fallback="↻ 检查更新">
+            <Show when={store.isCheckingUpdate()} fallback={`↻ ${t("status.checkUpdate")}`}>
               <span class="spinner"></span>
-              检查中...
+              {t("app.checking")}
             </Show>
           </button>
         </div>

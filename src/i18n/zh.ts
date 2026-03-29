@@ -3,6 +3,10 @@ export const zh = {
     title: "Vaultwarden 管理器",
     checking: "检查中...",
   },
+  tabs: {
+    main: "主页面",
+    backup: "备份",
+  },
   status: {
     title: "状态",
     vaultwarden: "Vaultwarden",

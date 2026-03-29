@@ -44,17 +44,36 @@ pub fn save_config(config: VaultwardenConfig) -> Result<(), String> {
 
 #[tauri::command]
 pub fn load_config() -> Result<VaultwardenConfig, String> {
-    let config_path = get_config_path()?;
+    Ok(load_config_internal())
+}
+
+pub fn load_config_internal() -> VaultwardenConfig {
+    let config_path = match get_config_path() {
+        Ok(p) => p,
+        Err(_) => return VaultwardenConfig::default(),
+    };
 
     if !config_path.exists() {
         log::info!("Config file not found, using default");
-        return Ok(VaultwardenConfig::default());
+        return VaultwardenConfig::default();
     }
 
-    let json = fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
-    let config: VaultwardenConfig = serde_json::from_str(&json).map_err(|e| e.to_string())?;
-    log::info!("Config loaded from {:?}", config_path);
-    Ok(config)
+    match fs::read_to_string(&config_path) {
+        Ok(json) => match serde_json::from_str::<VaultwardenConfig>(&json) {
+            Ok(config) => {
+                log::info!("Config loaded from {:?}", config_path);
+                config
+            }
+            Err(e) => {
+                log::error!("Failed to parse config: {}", e);
+                VaultwardenConfig::default()
+            }
+        },
+        Err(e) => {
+            log::error!("Failed to read config: {}", e);
+            VaultwardenConfig::default()
+        }
+    }
 }
 
 #[tauri::command]
