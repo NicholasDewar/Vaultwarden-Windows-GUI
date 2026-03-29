@@ -278,7 +278,6 @@ body {
     var(--shadow-lg),
     var(--inner-glow);
   position: relative;
-  overflow: hidden;
 }
 
 .panel::before {
