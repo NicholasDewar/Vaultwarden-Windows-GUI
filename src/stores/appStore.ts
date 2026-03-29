@@ -61,6 +61,14 @@ export interface WebVaultVersion {
   size: number;
 }
 
+export interface GuiUpdateInfo {
+  current_version: string;
+  latest_version: string;
+  is_outdated: boolean;
+  download_url: string;
+  release_notes: string;
+}
+
 export interface BackupConfig {
   enabled: boolean;
   interval_minutes: number;
@@ -102,6 +110,7 @@ function createAppStore() {
   });
   const [logs, setLogs] = createSignal<LogEntry[]>([]);
   const [isCheckingUpdate, setIsCheckingUpdate] = createSignal(false);
+  const [guiUpdate, setGuiUpdate] = createSignal<GuiUpdateInfo | null>(null);
   const [isDownloading, setIsDownloading] = createSignal(false);
   const [downloadProgress, setDownloadProgress] = createSignal(0);
   const [downloadFile, setDownloadFile] = createSignal("");
@@ -194,6 +203,18 @@ function createAppStore() {
       setError(String(e));
     } finally {
       setIsCheckingUpdate(false);
+    }
+  };
+
+  const checkGuiUpdate = async () => {
+    try {
+      const version = await invoke<string>("get_gui_version");
+      const updateInfo = await invoke<GuiUpdateInfo>("check_gui_updates", { currentVersion: version });
+      setGuiUpdate(updateInfo);
+      return updateInfo;
+    } catch (e) {
+      console.error("Failed to check GUI updates:", e);
+      return null;
     }
   };
 
@@ -646,6 +667,8 @@ function createAppStore() {
     setLogs,
     isCheckingUpdate,
     setIsCheckingUpdate,
+    guiUpdate,
+    checkGuiUpdate,
     isDownloading,
     setIsDownloading,
     downloadProgress,

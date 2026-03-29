@@ -112,6 +112,8 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::github::check_updates,
+            commands::github::check_gui_updates,
+            commands::github::get_gui_version,
             commands::github::get_releases,
             commands::github::download_binary,
             commands::github::get_latest_binary_version,

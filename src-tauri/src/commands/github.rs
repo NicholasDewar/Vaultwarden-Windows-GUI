@@ -11,6 +11,8 @@ const BINARY_OWNER: &str = "NicholasDewar";
 const BINARY_REPO: &str = "Vaultwarden-Windows-Binary";
 const WEBVAULT_OWNER: &str = "dani-garcia";
 const WEBVAULT_REPO: &str = "bw_web_builds";
+const GUI_OWNER: &str = "NicholasDewar";
+const GUI_REPO: &str = "Vaultwarden-Windows-GUI";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReleaseInfo {
@@ -85,6 +87,12 @@ fn get_github_releases_url(owner: &str, repo: &str) -> String {
 }
 
 #[tauri::command]
+pub fn get_gui_version() -> String {
+    let version = env!("CARGO_PKG_VERSION");
+    version.to_string()
+}
+
+#[tauri::command]
 pub async fn get_latest_binary_version() -> Result<String, String> {
     let url = get_github_release_url(BINARY_OWNER, BINARY_REPO);
 
@@ -124,6 +132,81 @@ pub async fn check_updates() -> Result<ReleaseInfo, String> {
 
     let release: GithubRelease = resp.json().await.map_err(|e| e.to_string())?;
     Ok(release.into())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuiUpdateInfo {
+    pub current_version: String,
+    pub latest_version: String,
+    pub is_outdated: bool,
+    pub download_url: String,
+    pub release_notes: String,
+}
+
+#[tauri::command]
+pub async fn check_gui_updates(current_version: String) -> Result<GuiUpdateInfo, String> {
+    let url = get_github_release_url(GUI_OWNER, GUI_REPO);
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&url)
+        .header("User-Agent", "Vaultwarden-GUI")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        return Err(format!("API returned status: {}", resp.status()));
+    }
+
+    let release: GithubRelease = resp.json().await.map_err(|e| e.to_string())?;
+    let latest_version = release.tag_name.trim_start_matches('v').to_string();
+    let current = current_version.trim_start_matches('v');
+    
+    let is_outdated = compare_versions(current, &latest_version) < 0;
+
+    let download_url = release
+        .assets
+        .iter()
+        .find(|a| a.name.contains(".msi") || a.name.contains(".exe"))
+        .map(|a| a.browser_download_url.clone())
+        .unwrap_or_else(|| release.html_url.clone());
+
+    Ok(GuiUpdateInfo {
+        current_version: current_version,
+        latest_version: latest_version,
+        is_outdated,
+        download_url,
+        release_notes: release.body,
+    })
+}
+
+fn compare_versions(current: &str, latest: &str) -> i32 {
+    let current_parts: Vec<u32> = current
+        .split('.')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+    let latest_parts: Vec<u32> = latest
+        .split('.')
+        .filter_map(|s| s.parse().ok())
+        .collect();
+
+    for (c, l) in current_parts.iter().zip(latest_parts.iter()) {
+        if c < l {
+            return -1;
+        } else if c > l {
+            return 1;
+        }
+    }
+
+    if current_parts.len() < latest_parts.len() {
+        return -1;
+    } else if current_parts.len() > latest_parts.len() {
+        return 1;
+    }
+
+    0
 }
 
 #[tauri::command]
