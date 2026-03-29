@@ -8,7 +8,6 @@ import { LogViewer } from "./components/LogViewer";
 import { LanguageSwitcher } from "./components/LanguageSwitcher";
 import { ThemeSwitcher } from "./components/ThemeSwitcher";
 import { StatusBar } from "./components/StatusBar";
-import { EnvironmentPanel } from "./components/EnvironmentPanel";
 import { ServiceControl } from "./components/ServiceControl";
 import { BackupSettings } from "./components/BackupSettings";
 import { BackupPanel } from "./components/BackupPanel";
@@ -55,32 +54,6 @@ const AppContent: Component = () => {
       console.error("Check update failed:", e);
     } finally {
       store.setIsCheckingUpdate(false);
-    }
-  };
-
-  const handleGenerateCerts = async () => {
-    try {
-      await store.generateCertificates();
-    } catch (e) {
-      console.error("Generate certs failed:", e);
-    }
-  };
-
-  const handleDownloadBinary = async () => {
-    if (store.binaryLatestVersion()) {
-      try {
-        await store.downloadBinary(store.binaryLatestVersion());
-      } catch (e) {
-        console.error("Download binary failed:", e);
-      }
-    }
-  };
-
-  const handleDownloadWebvault = async () => {
-    try {
-      await store.downloadWebvault();
-    } catch (e) {
-      console.error("Download webvault failed:", e);
     }
   };
 
@@ -150,11 +123,6 @@ const AppContent: Component = () => {
 
           <StatusBar />
           <ServiceControl onStart={handleStart} onStop={handleStop} />
-          <EnvironmentPanel
-            onDownloadBinary={handleDownloadBinary}
-            onDownloadWebvault={handleDownloadWebvault}
-            onGenerateCerts={handleGenerateCerts}
-          />
           <ConfigPanel
             onIpChange={handleIpChange}
             onPortChange={handlePortChange}
