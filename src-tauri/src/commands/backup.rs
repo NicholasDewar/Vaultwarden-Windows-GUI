@@ -11,7 +11,6 @@ use tokio::io::AsyncWriteExt;
 
 const DEFAULT_BACKUP_DIR: &str = "backups";
 const DATABASE_PATH: &str = "data/db.sqlite3";
-const SQLITE3_DOWNLOAD_URL: &str = "https://www.sqlite.org/2025/sqlite-tools-win-x64-3510300.zip";
 
 fn get_sqlite3_path() -> std::path::PathBuf {
     std::env::current_exe()
@@ -19,6 +18,35 @@ fn get_sqlite3_path() -> std::path::PathBuf {
         .and_then(|p| p.parent().map(|p| p.to_path_buf()))
         .unwrap_or_else(|| std::path::PathBuf::from("."))
         .join("sqlite3.exe")
+}
+
+async fn get_sqlite3_download_url() -> Result<String, String> {
+    let client = reqwest::Client::new();
+    let html = client
+        .get("https://sqlite.org/download.html")
+        .header("User-Agent", "Vaultwarden-GUI")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .text()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let comment_start = html.find("<!--").ok_or("Failed to find HTML comment start")?;
+    let comment_end = html.find("-->").ok_or("Failed to find HTML comment end")?;
+    let comment_content = &html[comment_start + 4..comment_end];
+
+    for line in comment_content.lines() {
+        if line.contains("sqlite-tools-win-x64") {
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.len() >= 3 {
+                let relative_url = parts[2].trim();
+                return Ok(format!("https://sqlite.org/{}", relative_url));
+            }
+        }
+    }
+
+    Err("Failed to find sqlite-tools-win-x64 download URL".to_string())
 }
 
 #[tauri::command]
@@ -53,9 +81,11 @@ pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
         "file": "sqlite3"
     }));
 
+    let download_url = get_sqlite3_download_url().await?;
+
     let client = reqwest::Client::new();
     let response = client
-        .get(SQLITE3_DOWNLOAD_URL)
+        .get(&download_url)
         .header("User-Agent", "Vaultwarden-GUI")
         .send()
         .await
