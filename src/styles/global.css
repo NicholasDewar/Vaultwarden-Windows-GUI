@@ -256,8 +256,8 @@ body {
   padding: var(--space-xl);
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto auto 1fr auto;
-  gap: var(--space-xl);
+  grid-auto-rows: min-content;
+  gap: var(--space-lg);
   max-height: calc(100vh - 70px);
 }
 
@@ -380,9 +380,9 @@ body {
    ============================================ */
 
 .status-overview {
-  grid-column: 1;
-  grid-row: 1;
-  min-height: 240px;
+  grid-column: auto;
+  grid-row: auto;
+  min-height: auto;
 }
 
 .status-grid {
@@ -484,8 +484,8 @@ body {
    ============================================ */
 
 .service-control {
-  grid-column: 2;
-  grid-row: 1;
+  grid-column: auto;
+  grid-row: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -493,7 +493,7 @@ body {
   text-align: center;
   position: relative;
   z-index: 10;
-  min-height: 240px;
+  min-height: auto;
 }
 
 .service-status {
@@ -740,7 +740,7 @@ body {
 
 .environment-card {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: auto;
 }
 
 .env-grid {
@@ -854,8 +854,8 @@ body {
 
 .config-card {
   grid-column: 1 / -1;
-  grid-row: 3;
-  min-height: 240px;
+  grid-row: auto;
+  min-height: auto;
 }
 
 .config-form {
@@ -1021,11 +1021,11 @@ body {
 
 .log-card {
   grid-column: 1 / -1;
-  grid-row: 4;
+  grid-row: auto;
   display: flex;
   flex-direction: column;
-  min-height: 200px;
-  max-height: 300px;
+  min-height: 150px;
+  max-height: none;
 }
 
 .log-header {
