@@ -135,6 +135,8 @@ function createAppStore() {
   const [activityStatus, setActivityStatus] = createSignal<ActivityStatus | null>(null);
   const [showBackupWarning, setShowBackupWarning] = createSignal(false);
   const [scheduledTaskExists, setScheduledTaskExists] = createSignal(false);
+  const [sqlite3Installed, setSqlite3Installed] = createSignal(false);
+  const [needsSqlite3Download, setNeedsSqlite3Download] = createSignal(false);
 
   const loadConfig = async () => {
     try {
@@ -466,11 +468,50 @@ function createAppStore() {
     }
   };
 
+  const checkSqlite3Installed = async () => {
+    try {
+      const installed = await invoke<boolean>("check_sqlite3_installed");
+      setSqlite3Installed(installed);
+      return installed;
+    } catch (e) {
+      console.error("Failed to check sqlite3:", e);
+      return false;
+    }
+  };
+
+  const downloadSqlite3 = async () => {
+    setIsDownloading(true);
+    setDownloadProgress(0);
+    setDownloadFile("sqlite3");
+    setError(null);
+    try {
+      await invoke<string>("download_sqlite3");
+      setSqlite3Installed(true);
+    } catch (e) {
+      console.error("Failed to download sqlite3:", e);
+      setError(String(e));
+      throw e;
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(0);
+      setDownloadFile("");
+    }
+  };
+
   const performBackup = async () => {
     setShowBackupWarning(false);
     setIsBackingUp(true);
     setError(null);
     try {
+      if (!sqlite3Installed()) {
+        const installed = await checkSqlite3Installed();
+        if (!installed) {
+          setNeedsSqlite3Download(true);
+          setIsBackingUp(false);
+          throw new Error("SQLITE3_NOT_INSTALLED");
+        }
+      }
+      
       const activity = await checkDatabaseActivity();
       if (activity && activity.is_active) {
         setShowBackupWarning(true);
@@ -500,6 +541,14 @@ function createAppStore() {
     setIsBackingUp(true);
     setError(null);
     try {
+      if (!sqlite3Installed()) {
+        const installed = await checkSqlite3Installed();
+        if (!installed) {
+          setNeedsSqlite3Download(true);
+          setIsBackingUp(false);
+          throw new Error("SQLITE3_NOT_INSTALLED");
+        }
+      }
       await invoke("backup_database", { backupDir: backupConfig().custom_dir });
       await invoke("cleanup_old_backups", { 
         backupDir: backupConfig().custom_dir, 
@@ -713,6 +762,11 @@ function createAppStore() {
     setShowBackupWarning,
     scheduledTaskExists,
     setScheduledTaskExists,
+    sqlite3Installed,
+    needsSqlite3Download,
+    setNeedsSqlite3Download,
+    checkSqlite3Installed,
+    downloadSqlite3,
     loadBackupConfig,
     saveBackupConfig,
     listBackups,

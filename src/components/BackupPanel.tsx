@@ -1,18 +1,44 @@
-import { Component, Show, For } from "solid-js";
+import { Component, Show, For, createSignal } from "solid-js";
 import { useI18n } from "../i18n";
 import { appStore } from "../stores/appStore";
 
 export const BackupPanel: Component = () => {
   const { t } = useI18n();
   const store = appStore;
+  const [showSqlite3Dialog, setShowSqlite3Dialog] = createSignal(false);
 
   const handleBackupNow = async () => {
+    await store.checkSqlite3Installed();
+    if (!store.sqlite3Installed()) {
+      setShowSqlite3Dialog(true);
+      return;
+    }
     await store.checkDatabaseActivity();
     await store.performBackup();
   };
 
   const handleForceBackup = async () => {
+    await store.checkSqlite3Installed();
+    if (!store.sqlite3Installed()) {
+      setShowSqlite3Dialog(true);
+      return;
+    }
     await store.forceBackup();
+  };
+
+  const handleDownloadSqlite3 = async () => {
+    setShowSqlite3Dialog(false);
+    try {
+      await store.downloadSqlite3();
+      await store.performBackup();
+    } catch (e) {
+      console.error("Failed to download sqlite3:", e);
+    }
+  };
+
+  const handleCancelSqlite3Download = () => {
+    setShowSqlite3Dialog(false);
+    store.setNeedsSqlite3Download(false);
   };
 
   const handleCancelBackup = () => {
@@ -120,6 +146,32 @@ export const BackupPanel: Component = () => {
           </Show>
         </button>
       </div>
+
+      <Show when={showSqlite3Dialog()}>
+        <div class="backup-warning">
+          <div class="warning-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7,10 12,15 17,10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+          </div>
+          <div class="warning-text">
+            <div class="warning-title">{t("backup.sqlite3Required")}</div>
+            <div class="warning-subtitle">
+              {t("backup.sqlite3DownloadPrompt")}
+            </div>
+          </div>
+          <div class="warning-actions">
+            <button class="btn btn-primary btn-small" onClick={handleDownloadSqlite3}>
+              {t("backup.downloadSqlite3")}
+            </button>
+            <button class="btn btn-secondary btn-small" onClick={handleCancelSqlite3Download}>
+              {t("backup.cancel")}
+            </button>
+          </div>
+        </div>
+      </Show>
 
       <Show when={store.showBackupWarning()}>
         <div class="backup-warning">

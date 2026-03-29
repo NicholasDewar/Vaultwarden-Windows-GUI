@@ -1,11 +1,130 @@
 use chrono::Local;
+use flate2::read::GzDecoder;
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use tar::Archive;
+use tokio::io::AsyncWriteExt;
 
 const DEFAULT_BACKUP_DIR: &str = "backups";
 const DATABASE_PATH: &str = "data/db.sqlite3";
+const SQLITE3_DOWNLOAD_URL: &str = "https://www.sqlite.org/2024/sqlite-tools-win-x64-3450100.zip";
+
+fn get_sqlite3_path() -> std::path::PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("sqlite3.exe")
+}
+
+#[tauri::command]
+pub fn check_sqlite3_installed() -> bool {
+    let sqlite3_path = get_sqlite3_path();
+    if sqlite3_path.exists() {
+        let output = Command::new(&sqlite3_path)
+            .arg("--version")
+            .output();
+        return output.map(|o| o.status.success()).unwrap_or(false);
+    }
+    false
+}
+
+#[tauri::command]
+pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
+    let sqlite3_exe = get_sqlite3_path();
+    
+    if sqlite3_exe.exists() {
+        return Ok(sqlite3_exe.to_string_lossy().to_string());
+    }
+
+    let app_dir = sqlite3_exe.parent().unwrap_or(&std::path::PathBuf::from("."));
+    fs::create_dir_all(app_dir).map_err(|e| e.to_string())?;
+
+    let zip_path = app_dir.join("sqlite3.zip");
+    
+    let _ = window.emit("download-progress", serde_json::json!({
+        "progress": 0,
+        "downloaded": 0,
+        "total": 1,
+        "file": "sqlite3"
+    }));
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(SQLITE3_DOWNLOAD_URL)
+        .header("User-Agent", "Vaultwarden-GUI")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("Failed to download sqlite3: {}", response.status()));
+    }
+
+    let total_size = response.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+    let mut file = tokio::fs::File::create(&zip_path)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut stream = response.bytes_stream();
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+        let progress = if total_size > 0 {
+            (downloaded as f64 / total_size as f64 * 100.0) as u8
+        } else {
+            50
+        };
+        let _ = window.emit("download-progress", serde_json::json!({
+            "progress": progress,
+            "downloaded": downloaded,
+            "total": total_size,
+            "file": "sqlite3"
+        }));
+        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+    }
+
+    let _ = window.emit("download-progress", serde_json::json!({
+        "progress": 100,
+        "downloaded": downloaded,
+        "total": total_size,
+        "file": "sqlite3"
+    }));
+
+    let file_data = fs::read(&zip_path).map_err(|e| e.to_string())?;
+    let decoder = GzDecoder::new(&file_data);
+    let mut archive = Archive::new(decoder);
+
+    let mut found_sqlite3 = false;
+    for entry in archive.entries().map_err(|e| e.to_string())? {
+        let mut entry = entry.map_err(|e| e.to_string())?;
+        let path = entry.path().map_err(|e| e.to_string())?;
+        
+        if path.file_name()
+            .and_then(|n| n.to_str())
+            .map(|n| n.starts_with("sqlite3") && n.ends_with(".exe"))
+            .unwrap_or(false) 
+        {
+            entry.unpack(&sqlite3_exe).map_err(|e| e.to_string())?;
+            found_sqlite3 = true;
+            break;
+        }
+    }
+
+    fs::remove_file(&zip_path).ok();
+
+    if !found_sqlite3 {
+        return Err("sqlite3.exe not found in archive".to_string());
+    }
+
+    log::info!("sqlite3 downloaded to {:?}", sqlite3_exe);
+    Ok(sqlite3_exe.to_string_lossy().to_string())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupConfig {
@@ -116,14 +235,20 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
     let filename = format!("vaultwarden_{}.sqlite3", timestamp);
     let backup_path = Path::new(&dir).join(&filename);
 
-    let output = Command::new("sqlite3")
+    let sqlite3_path = get_sqlite3_path();
+    
+    if !sqlite3_path.exists() {
+        return Err("sqlite3 not found. Please download it first.".to_string());
+    }
+
+    let output = Command::new(&sqlite3_path)
         .arg(&db_path)
         .arg(".backup")
         .arg(backup_path.to_str().unwrap())
         .output()
         .map_err(|e| {
             format!(
-                "Failed to execute sqlite3: {}. Make sure SQLite3 is installed.",
+                "Failed to execute sqlite3: {}",
                 e
             )
         })?;

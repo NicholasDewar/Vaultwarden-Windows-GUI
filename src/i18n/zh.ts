@@ -131,6 +131,9 @@ export const zh = {
     minutesAgo: "{n} 分钟前",
     hoursAgo: "{n} 小时前",
     daysAgo: "{n} 天前",
+    sqlite3Required: "需要 SQLite3 工具",
+    sqlite3DownloadPrompt: "首次备份需要下载 SQLite3 工具（仅 2MB），是否立即下载？",
+    downloadSqlite3: "下载 SQLite3",
   },
   actions: {
     start: "启动 Vaultwarden",

@@ -131,6 +131,9 @@ export const en = {
     minutesAgo: "{n} minutes ago",
     hoursAgo: "{n} hours ago",
     daysAgo: "{n} days ago",
+    sqlite3Required: "SQLite3 Tool Required",
+    sqlite3DownloadPrompt: "First backup requires downloading SQLite3 tool (~2MB). Download now?",
+    downloadSqlite3: "Download SQLite3",
   },
   actions: {
     start: "Start Vaultwarden",

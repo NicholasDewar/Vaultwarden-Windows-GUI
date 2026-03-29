@@ -155,6 +155,8 @@ fn main() {
             commands::backup::create_scheduled_task,
             commands::backup::delete_scheduled_task,
             commands::backup::check_scheduled_task_exists,
+            commands::backup::check_sqlite3_installed,
+            commands::backup::download_sqlite3,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
