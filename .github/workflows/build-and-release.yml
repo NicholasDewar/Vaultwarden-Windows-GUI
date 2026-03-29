@@ -86,6 +86,14 @@ jobs:
           $config | ConvertTo-Json -Depth 10 | Set-Content 'src-tauri/tauri.conf.json' -Encoding utf8
           Get-Content 'src-tauri/tauri.conf.json'
 
+      - name: Remove old bundle artifacts
+        run: Remove-Item -Recurse -Force src-tauri/target/release/bundle -ErrorAction SilentlyContinue
+
+      - name: Force Rust recompilation
+        run: |
+          $files = Get-ChildItem src-tauri/src -Recurse -Filter "*.rs" | Select-Object -First 1
+          $files.LastWriteTime = Get-Date
+
       - name: Build Tauri app
         run: npm run tauri build
 
