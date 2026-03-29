@@ -178,7 +178,7 @@ pub async fn check_gui_updates(current_version: String) -> Result<GuiUpdateInfo,
         latest_version: latest_version,
         is_outdated,
         download_url,
-        release_notes: release.body,
+        release_notes: release.body.unwrap_or_default(),
     })
 }
 
