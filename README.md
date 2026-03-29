@@ -14,6 +14,12 @@
 - 多语言（中文/English）
 - 自动更新检查
 
+## 截图
+
+![主页面](screenshots/app-main.png)
+
+![备份页面](screenshots/app-backup.png)
+
 ## 目录结构
 
 ```
