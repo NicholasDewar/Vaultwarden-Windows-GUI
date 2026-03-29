@@ -46,18 +46,18 @@ export const StatusBar: Component = () => {
             <div>
               <div class="status-label">{t("status.webvault")}</div>
               <div class="status-value">
-                <Show when={store.webvaultVersion()} fallback={<span class="text-muted">{t("status.notInstalled")}</span>}>
-                  {store.webvaultVersion()}
+                <Show when={store.validation()?.webvault_exists} fallback={<span class="text-muted">{t("status.notInstalled")}</span>}>
+                  {store.webvaultVersion() || t("versions.downloaded")}
                 </Show>
               </div>
             </div>
           </div>
-          <Show when={store.webvaultVersion()}>
+          <Show when={store.validation()?.webvault_exists}>
             <span class="status-badge success">
               <Check size={12} /> {t("versions.current")}
             </span>
           </Show>
-          <Show when={!store.webvaultVersion()}>
+          <Show when={!store.validation()?.webvault_exists}>
             <span class="status-badge warning">
               <X size={12} /> {t("status.notInstalled")}
             </span>
