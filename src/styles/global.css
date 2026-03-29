@@ -1933,6 +1933,17 @@ body {
 }
 
 /* ============================================
+   Cert Actions Container
+   ============================================ */
+
+.cert-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: flex-end;
+}
+
+/* ============================================
    Cert Tool Selector
    ============================================ */
 
