@@ -11,7 +11,7 @@ use tokio::io::AsyncWriteExt;
 
 const DEFAULT_BACKUP_DIR: &str = "backups";
 const DATABASE_PATH: &str = "data/db.sqlite3";
-const SQLITE3_DOWNLOAD_URL: &str = "https://www.sqlite.org/2024/sqlite-tools-win-x64-3450100.zip";
+const SQLITE3_DOWNLOAD_URL: &str = "https://www.sqlite.org/2025/sqlite-tools-win-x64-3510300.zip";
 
 fn get_sqlite3_path() -> std::path::PathBuf {
     std::env::current_exe()
