@@ -136,7 +136,7 @@ pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
     let mut found_sqlite3 = false;
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
-        let path = entry.enclosed_name().map_err(|e| e.to_string())?;
+        let path = entry.enclosed_name().ok_or("Failed to get enclosed name")?;
 
         if path.file_name()
             .and_then(|n| n.to_str())
