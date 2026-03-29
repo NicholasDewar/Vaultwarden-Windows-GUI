@@ -3,12 +3,16 @@ use std::process::Stdio;
 use std::sync::Mutex;
 use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader as AsyncBufReader};
-use tokio::process::Command;
+use tokio::process::{Child, Command};
+use tokio::sync::oneshot;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<tokio::process::Child>>> =
+pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<Child>>> =
+    std::sync::OnceLock::new();
+
+pub(crate) static READER_ABORT_HANDLES: std::sync::OnceLock<Mutex<Option<Vec<oneshot::Sender<()>>>>> =
     std::sync::OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -89,49 +93,90 @@ pub async fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window)
         );
     }
 
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn vaultwarden: {}", e))?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
     let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
 
+    let (stdout_abort_tx, stdout_abort_rx) = oneshot::channel::<()>();
+    let (stderr_abort_tx, stderr_abort_rx) = oneshot::channel::<()>();
+
     let window_clone = window.clone();
     tokio::spawn(async move {
         let mut reader = AsyncBufReader::new(stdout).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
-            let _ = window_clone.emit(
-                "vaultwarden-log",
-                serde_json::json!({
-                    "level": "INFO",
-                    "message": line
-                }),
-            );
+        loop {
+            tokio::select! {
+                result = reader.next_line() => {
+                    match result {
+                        Ok(Some(line)) => {
+                            let _ = window_clone.emit(
+                                "vaultwarden-log",
+                                serde_json::json!({
+                                    "level": "INFO",
+                                    "message": line
+                                }),
+                            );
+                        }
+                        Ok(None) => break,
+                        Err(e) => {
+                            log::debug!("stdout reader ended: {}", e);
+                            break;
+                        }
+                    }
+                }
+                _ = stdout_abort_rx => {
+                    log::debug!("stdout reader aborted");
+                    break;
+                }
+            }
         }
     });
 
     let window_clone = window.clone();
     tokio::spawn(async move {
         let mut reader = AsyncBufReader::new(stderr).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
-            let level = if line.to_lowercase().contains("error") {
-                "ERROR"
-            } else if line.to_lowercase().contains("warn") {
-                "WARN"
-            } else {
-                "INFO"
-            };
-            let _ = window_clone.emit(
-                "vaultwarden-log",
-                serde_json::json!({
-                    "level": level,
-                    "message": line
-                }),
-            );
+        loop {
+            tokio::select! {
+                result = reader.next_line() => {
+                    match result {
+                        Ok(Some(line)) => {
+                            let level = if line.to_lowercase().contains("error") {
+                                "ERROR"
+                            } else if line.to_lowercase().contains("warn") {
+                                "WARN"
+                            } else {
+                                "INFO"
+                            };
+                            let _ = window_clone.emit(
+                                "vaultwarden-log",
+                                serde_json::json!({
+                                    "level": level,
+                                    "message": line
+                                }),
+                            );
+                        }
+                        Ok(None) => break,
+                        Err(e) => {
+                            log::debug!("stderr reader ended: {}", e);
+                            break;
+                        }
+                    }
+                }
+                _ = stderr_abort_rx => {
+                    log::debug!("stderr reader aborted");
+                    break;
+                }
+            }
         }
     });
 
     let process_mutex = VAULTWARDEN_PROCESS.get_or_init(|| Mutex::new(None));
-    let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
+    let mut guard = process_mutex.lock().map_err(|e| format!("Lock error: {}", e))?;
     *guard = Some(child);
+
+    let abort_mutex = READER_ABORT_HANDLES.get_or_init(|| Mutex::new(None));
+    let mut abort_guard = abort_mutex.lock().map_err(|e| format!("Lock error: {}", e))?;
+    *abort_guard = Some(vec![stdout_abort_tx, stderr_abort_tx]);
 
     let _ = window.emit("status-changed", true);
 
@@ -141,16 +186,43 @@ pub async fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window)
 
 #[tauri::command]
 pub async fn stop_vaultwarden() -> Result<(), String> {
+    if let Some(abort_mutex) = READER_ABORT_HANDLES.get() {
+        if let Ok(mut guard) = abort_mutex.lock() {
+            if let Some(abort_handles) = guard.take() {
+                for tx in abort_handles {
+                    let _ = tx.send(());
+                }
+                log::debug!("Reader abort signals sent");
+            }
+        }
+    }
+
     let process_mutex = VAULTWARDEN_PROCESS.get_or_init(|| Mutex::new(None));
     let child_opt = {
-        let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
+        let mut guard = process_mutex.lock().map_err(|e| format!("Lock error: {}", e))?;
         guard.take()
     };
 
     if let Some(mut child) = child_opt {
-        child.kill().await.map_err(|e| e.to_string())?;
-        child.wait().await.map_err(|e| e.to_string())?;
-        log::info!("Vaultwarden stopped");
+        match child.kill().await {
+            Ok(()) => {
+                log::info!("Vaultwarden kill signal sent successfully");
+            }
+            Err(e) => {
+                log::warn!("Failed to send kill signal: {}. Process may already be terminated.", e);
+            }
+        }
+        
+        match child.wait().await {
+            Ok(status) => {
+                log::info!("Vaultwarden process exited with status: {}", status);
+            }
+            Err(e) => {
+                log::warn!("Failed to wait for process: {}", e);
+            }
+        }
+    } else {
+        log::debug!("No vaultwarden process to stop");
     }
 
     Ok(())

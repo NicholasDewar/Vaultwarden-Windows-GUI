@@ -143,8 +143,10 @@ function createAppStore() {
     try {
       const cfg = await invoke<VaultwardenConfig>("load_config");
       setConfig(cfg);
+      console.info("Config loaded successfully");
     } catch (e) {
       console.error("Failed to load config:", e);
+      throw e;
     }
   };
 
@@ -651,6 +653,10 @@ function createAppStore() {
       addLog(event.payload.level, event.payload.message);
     });
 
+    listen<VaultwardenConfig>("config-loaded", (event) => {
+      setConfig(event.payload);
+    });
+
     listen<{ progress: number; downloaded: number; total: number; file: string }>(
       "download-progress",
       (event) => {
@@ -689,6 +695,7 @@ function createAppStore() {
 
   const initAndStart = async () => {
     setupListeners();
+    await loadConfig();
   };
 
   return {
