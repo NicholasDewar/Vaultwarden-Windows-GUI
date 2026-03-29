@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter};
 use tauri::async_runtime::spawn;
 use tokio::time::sleep;
 
-use crate::commands::process::{CertToolsStatus, ValidationResult, VaultwardenConfig};
+use crate::commands::process::{CertToolsStatus, ValidationResult};
 
 pub struct BackgroundTasks {
     app_handle: AppHandle,

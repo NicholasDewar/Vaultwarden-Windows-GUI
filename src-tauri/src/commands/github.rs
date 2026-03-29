@@ -511,39 +511,12 @@ fn normalize_version(version: &str) -> String {
     version.trim_start_matches('v').trim().to_string()
 }
 
-fn compare_versions(current: &str, latest: &str) -> i32 {
-    let current_parts: Vec<u32> = current
-        .split('.')
-        .filter_map(|s| s.parse().ok())
-        .collect();
-    let latest_parts: Vec<u32> = latest
-        .split('.')
-        .filter_map(|s| s.parse().ok())
-        .collect();
-
-    for (c, l) in current_parts.iter().zip(latest_parts.iter()) {
-        if c < l {
-            return -1;
-        } else if c > l {
-            return 1;
-        }
-    }
-
-    if current_parts.len() < latest_parts.len() {
-        return -1;
-    } else if current_parts.len() > latest_parts.len() {
-        return 1;
-    }
-
-    0
-}
-
 #[tauri::command]
 pub async fn check_binary_update() -> Result<BinaryUpdateInfo, String> {
     let current = get_binary_version();
     let current_normalized = current.as_ref().map(|v| normalize_version(v));
     
-    let latest = get_latest_binary_version_internal().await;
+    let latest = get_latest_binary_version().await.ok();
     let latest_normalized = latest.as_ref().map(|v| normalize_version(v));
     
     let has_update = match (&current_normalized, &latest_normalized) {
