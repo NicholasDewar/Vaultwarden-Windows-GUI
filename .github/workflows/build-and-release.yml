@@ -81,7 +81,7 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: 'Vaultwarden Manager ${{ env.VERSION }}'
           body: 'Automated release'
-          draft: true
+          draft: false
           files: src-tauri/target/release/bundle/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
