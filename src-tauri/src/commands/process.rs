@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<tokio::process::Child>>> =
+pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<tokio::process::Child>>> =
     std::sync::OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

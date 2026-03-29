@@ -3,7 +3,7 @@ name = "vaultwarden-gui"
 version = "1.0.0"
 description = "Vaultwarden Manager"
 authors = ["you"]
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "vaultwarden_gui_lib"

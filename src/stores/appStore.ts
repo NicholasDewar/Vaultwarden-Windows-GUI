@@ -540,8 +540,34 @@ function createAppStore() {
   };
 
   const setupListeners = async () => {
-    await listen<string>("status-changed", (event) => {
-      setIsRunning(event.payload as boolean);
+    await listen<boolean>("status-changed", (event) => {
+      setIsRunning(event.payload);
+    });
+
+    await listen<CertToolsStatus>("cert-tools-status", (event) => {
+      setCertToolsStatus(event.payload);
+      setOpensslAvailable(event.payload.openssl_available);
+      if (event.payload.mkcert_available) {
+        setCertTool('mkcert');
+      } else if (event.payload.openssl_available) {
+        setCertTool('openssl');
+      }
+    });
+
+    await listen<{
+      binaryLatestVersion: string;
+      webvaultLatestVersion: string;
+      binaryVersion: string;
+      webvaultVersion: string;
+      validation: ValidationResult;
+    }>("versions-checked", (event) => {
+      const payload = event.payload;
+      setBinaryLatestVersion(payload.binaryLatestVersion);
+      setWebvaultLatestVersion(payload.webvaultLatestVersion);
+      setBinaryVersion(payload.binaryVersion);
+      setWebvaultVersion(payload.webvaultVersion);
+      setValidation(payload.validation);
+      setIsCheckingUpdate(false);
     });
 
     await listen<{ level: string; message: string }>("vaultwarden-log", (event) => {
@@ -573,24 +599,24 @@ function createAppStore() {
     });
 
     await listen("tray-check-update", async () => {
-      await checkAllVersions();
+      setIsCheckingUpdate(true);
+      const [latestBinary, latestWebvault] = await Promise.all([
+        invoke<string>("get_latest_binary_version"),
+        invoke<WebVaultVersion>("get_latest_webvault_version"),
+      ]);
+      setBinaryLatestVersion(latestBinary);
+      setWebvaultLatestVersion(latestWebvault.version);
+      setIsCheckingUpdate(false);
     });
 
     await Promise.all([
-      checkCertTools(),
       getStatus(),
       loadConfig(),
       loadBackupConfig(),
       getLocalIps(),
-      checkBinaryVersion(),
-      checkWebvaultVersion(),
     ]);
 
-    await validateEnvironment();
-    await Promise.all([
-      checkAllVersions(),
-      listBackups(),
-    ]);
+    await listBackups();
   };
 
   const initAndStart = async () => {

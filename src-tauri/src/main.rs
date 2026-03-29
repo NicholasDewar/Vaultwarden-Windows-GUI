@@ -37,6 +37,8 @@ fn main() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            commands::background::BackgroundTasks::new(app.handle()).start();
+
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let show = MenuItem::with_id(app, "show", "显示主窗口", true, None::<&str>)?;
             let start = MenuItem::with_id(app, "start", "启动 Vaultwarden", true, None::<&str>)?;

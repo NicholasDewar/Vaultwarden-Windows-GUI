@@ -1,4 +1,6 @@
 import { Component, onMount, Show, createSignal } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
+import { WebVaultVersion } from "./stores/appStore";
 import { I18nProvider } from "./i18n";
 import { appStore } from "./stores/appStore";
 import { ConfigPanel } from "./components/ConfigPanel";
@@ -40,9 +42,17 @@ const AppContent: Component = () => {
 
   const handleCheckUpdate = async () => {
     try {
-      await store.checkAllVersions();
+      store.setIsCheckingUpdate(true);
+      const [latestBinary, latestWebvault] = await Promise.all([
+        invoke<string>("get_latest_binary_version"),
+        invoke<WebVaultVersion>("get_latest_webvault_version"),
+      ]);
+      store.setBinaryLatestVersion(latestBinary);
+      store.setWebvaultLatestVersion(latestWebvault.version);
     } catch (e) {
       console.error("Check update failed:", e);
+    } finally {
+      store.setIsCheckingUpdate(false);
     }
   };
 
@@ -58,8 +68,6 @@ const AppContent: Component = () => {
     if (store.binaryLatestVersion()) {
       try {
         await store.downloadBinary(store.binaryLatestVersion());
-        await store.checkBinaryVersion();
-        await store.validateEnvironment();
       } catch (e) {
         console.error("Download binary failed:", e);
       }
