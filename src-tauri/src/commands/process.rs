@@ -43,6 +43,13 @@ pub struct ValidationResult {
     pub missing_items: Vec<String>,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CertToolsStatus {
+    pub openssl_available: bool,
+    pub mkcert_available: bool,
+    pub mkcert_ca_installed: bool,
+}
+
 #[tauri::command]
 pub async fn start_vaultwarden(
     config: VaultwardenConfig,
@@ -253,4 +260,131 @@ pub fn check_openssl_available() -> bool {
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn check_cert_tools_available() -> Result<CertToolsStatus, String> {
+    let openssl_available = std::process::Command::new("openssl")
+        .arg("version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let mkcert_available = std::process::Command::new("mkcert")
+        .arg("-version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    let mkcert_ca_installed = if mkcert_available {
+        check_mkcert_ca_installed()
+    } else {
+        false
+    };
+
+    Ok(CertToolsStatus {
+        openssl_available,
+        mkcert_available,
+        mkcert_ca_installed,
+    })
+}
+
+fn check_mkcert_ca_installed() -> bool {
+    let localappdata = std::env::var("LOCALAPPDATA").ok();
+    if let Some(localappdata) = localappdata {
+        let mkcert_dir = std::path::Path::new(&localappdata).join("mkcert");
+        let root_key = mkcert_dir.join("rootCAKey.pem");
+        let root_cert = mkcert_dir.join("rootCApem");
+        return root_key.exists() && root_cert.exists();
+    }
+    false
+}
+
+#[tauri::command]
+pub fn check_mkcert_available() -> bool {
+    std::process::Command::new("mkcert")
+        .arg("-version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn is_mkcert_ca_installed() -> bool {
+    check_mkcert_ca_installed()
+}
+
+#[tauri::command]
+pub fn install_mkcert_ca() -> Result<(), String> {
+    let output = std::process::Command::new("mkcert")
+        .arg("-install")
+        .output()
+        .map_err(|e| format!("Failed to run mkcert -install: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Failed to install mkcert CA: {}", stderr));
+    }
+
+    log::info!("mkcert CA installed successfully");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn generate_certificates_with_tool(
+    cert_path: String,
+    key_path: String,
+    ip: String,
+    tool: String,
+) -> Result<(), String> {
+    match tool.as_str() {
+        "mkcert" => generate_cert_with_mkcert(&cert_path, &key_path, &ip),
+        "openssl" | _ => generate_cert_with_openssl(&cert_path, &key_path, &ip),
+    }
+}
+
+fn generate_cert_with_mkcert(cert_path: &str, key_path: &str, ip: &str) -> Result<(), String> {
+    let output = std::process::Command::new("mkcert")
+        .args(&[
+            "-key-file", key_path,
+            "-cert-file", cert_path,
+            "localhost", "127.0.0.1", "::1", ip,
+        ])
+        .output()
+        .map_err(|e| format!("Failed to run mkcert: {}. Make sure mkcert is installed.", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Failed to generate certificates with mkcert: {}", stderr));
+    }
+
+    log::info!("Generated certificates with mkcert: {} and {}", cert_path, key_path);
+    Ok(())
+}
+
+fn generate_cert_with_openssl(cert_path: &str, key_path: &str, ip: &str) -> Result<(), String> {
+    let output = std::process::Command::new("openssl")
+        .args(&[
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-days",
+            "3650",
+            "-keyout", key_path,
+            "-out", cert_path,
+            "-subj", "/CN=localhost",
+            "-addext", &format!("subjectAltName=DNS:localhost,IP:127.0.0.1,IP:{}", ip),
+        ])
+        .output()
+        .map_err(|e| format!("Failed to run openssl: {}. Make sure OpenSSL is installed.", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Failed to generate certificates with openssl: {}", stderr));
+    }
+
+    log::info!("Generated certificates with openssl: {} and {}", cert_path, key_path);
+    Ok(())
 }

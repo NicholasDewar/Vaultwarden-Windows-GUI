@@ -49,6 +49,12 @@ export interface ValidationResult {
   missing_items: string[];
 }
 
+export interface CertToolsStatus {
+  openssl_available: boolean;
+  mkcert_available: boolean;
+  mkcert_ca_installed: boolean;
+}
+
 export interface WebVaultVersion {
   version: string;
   download_url: string;
@@ -101,6 +107,8 @@ function createAppStore() {
   const [downloadFile, setDownloadFile] = createSignal("");
   const [validation, setValidation] = createSignal<ValidationResult | null>(null);
   const [opensslAvailable, setOpensslAvailable] = createSignal(true);
+  const [certTool, setCertTool] = createSignal<'openssl' | 'mkcert'>('mkcert');
+  const [certToolsStatus, setCertToolsStatus] = createSignal<CertToolsStatus | null>(null);
   const [isGeneratingCerts, setIsGeneratingCerts] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
@@ -252,18 +260,27 @@ function createAppStore() {
   };
 
   const generateCertificates = async () => {
-    if (!opensslAvailable()) {
+    const status = certToolsStatus();
+    const tool = certTool();
+
+    if (tool === 'openssl' && (!status || !status.openssl_available)) {
       setError("OpenSSL is not installed. Please install OpenSSL to generate certificates.");
+      return;
+    }
+
+    if (tool === 'mkcert' && (!status || !status.mkcert_available)) {
+      setError("mkcert is not installed. Please install mkcert to generate certificates.");
       return;
     }
 
     setIsGeneratingCerts(true);
     setError(null);
     try {
-      await invoke("generate_certificates", {
+      await invoke("generate_certificates_with_tool", {
         certPath: config().cert_path,
         keyPath: config().key_path,
         ip: selectedIp(),
+        tool: tool,
       });
       await validateEnvironment();
     } catch (e) {
@@ -344,6 +361,34 @@ function createAppStore() {
       console.error("Failed to check openssl:", e);
       setOpensslAvailable(false);
       return false;
+    }
+  };
+
+  const checkCertTools = async () => {
+    try {
+      const status = await invoke<CertToolsStatus>("check_cert_tools_available");
+      setCertToolsStatus(status);
+      setOpensslAvailable(status.openssl_available);
+      if (status.mkcert_available) {
+        setCertTool('mkcert');
+      } else if (status.openssl_available) {
+        setCertTool('openssl');
+      }
+      return status;
+    } catch (e) {
+      console.error("Failed to check cert tools:", e);
+      return null;
+    }
+  };
+
+  const installMkcertCA = async () => {
+    try {
+      await invoke("install_mkcert_ca");
+      await checkCertTools();
+    } catch (e) {
+      console.error("Failed to install mkcert CA:", e);
+      setError(String(e));
+      throw e;
     }
   };
 
@@ -532,7 +577,7 @@ function createAppStore() {
     });
 
     await Promise.all([
-      checkOpenssl(),
+      checkCertTools(),
       getStatus(),
       loadConfig(),
       loadBackupConfig(),
@@ -584,6 +629,12 @@ function createAppStore() {
     setValidation,
     opensslAvailable,
     setOpensslAvailable,
+    certTool,
+    setCertTool,
+    certToolsStatus,
+    setCertToolsStatus,
+    checkCertTools,
+    installMkcertCA,
     isGeneratingCerts,
     setIsGeneratingCerts,
     error,
