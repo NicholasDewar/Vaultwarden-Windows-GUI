@@ -94,6 +94,7 @@ function createAppStore() {
   const [isRunning, setIsRunning] = createSignal(false);
   const [binaryVersion, setBinaryVersion] = createSignal("");
   const [binaryLatestVersion, setBinaryLatestVersion] = createSignal("");
+  const [hasBinaryUpdate, setHasBinaryUpdate] = createSignal(false);
   const [webvaultVersion, setWebvaultVersion] = createSignal("");
   const [webvaultLatestVersion, setWebvaultLatestVersion] = createSignal("");
   const [releases, setReleases] = createSignal<ReleaseInfo[]>([]);
@@ -186,15 +187,17 @@ function createAppStore() {
     setIsCheckingUpdate(true);
     setError(null);
     try {
-      const [latestBinary, latestWebvault] = await Promise.all([
-        invoke<string>("get_latest_binary_version"),
+      const [binaryUpdateInfo, latestWebvault] = await Promise.all([
+        invoke<{ current_version: string | null; latest_version: string | null; has_update: boolean }>("check_binary_update"),
         invoke<WebVaultVersion>("get_latest_webvault_version"),
       ]);
-      setBinaryLatestVersion(latestBinary);
+      
+      setBinaryVersion(binaryUpdateInfo.current_version || "");
+      setBinaryLatestVersion(binaryUpdateInfo.latest_version || "");
+      setHasBinaryUpdate(binaryUpdateInfo.has_update);
       setWebvaultLatestVersion(latestWebvault.version);
 
       await Promise.all([
-        checkBinaryVersion(),
         checkWebvaultVersion(),
         validateEnvironment(),
       ]);
@@ -642,6 +645,7 @@ function createAppStore() {
     setBinaryVersion,
     binaryLatestVersion,
     setBinaryLatestVersion,
+    hasBinaryUpdate,
     webvaultVersion,
     setWebvaultVersion,
     webvaultLatestVersion,

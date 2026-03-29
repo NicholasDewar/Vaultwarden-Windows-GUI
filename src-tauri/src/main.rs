@@ -123,6 +123,7 @@ fn main() {
             commands::github::get_webvault_version,
             commands::github::check_binary_exists,
             commands::github::get_binary_version,
+            commands::github::check_binary_update,
             commands::process::start_vaultwarden,
             commands::process::stop_vaultwarden,
             commands::process::get_status,

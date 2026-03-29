@@ -59,7 +59,7 @@ export const EnvironmentPanel: Component<EnvironmentPanelProps> = (props) => {
               </Show>
             </button>
           </Show>
-          <Show when={store.validation()?.binary_exists && store.binaryVersion() !== store.binaryLatestVersion()}>
+          <Show when={store.validation()?.binary_exists && store.hasBinaryUpdate()}>
             <span class="status-badge warning"><ArrowUp size={12} /> {t("status.updateAvailable")}</span>
           </Show>
         </div>
