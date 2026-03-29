@@ -102,8 +102,10 @@ pub async fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window)
     let (stderr_abort_tx, stderr_abort_rx) = oneshot::channel::<()>();
 
     let window_clone = window.clone();
+    let stdout_abort_rx = stdout_abort_rx;
     tokio::spawn(async move {
         let mut reader = AsyncBufReader::new(stdout).lines();
+        tokio::pin!(stdout_abort_rx);
         loop {
             tokio::select! {
                 result = reader.next_line() => {
@@ -124,7 +126,7 @@ pub async fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window)
                         }
                     }
                 }
-                _ = stdout_abort_rx => {
+                _ = &mut stdout_abort_rx => {
                     log::debug!("stdout reader aborted");
                     break;
                 }
@@ -133,8 +135,10 @@ pub async fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window)
     });
 
     let window_clone = window.clone();
+    let stderr_abort_rx = stderr_abort_rx;
     tokio::spawn(async move {
         let mut reader = AsyncBufReader::new(stderr).lines();
+        tokio::pin!(stderr_abort_rx);
         loop {
             tokio::select! {
                 result = reader.next_line() => {
@@ -162,7 +166,7 @@ pub async fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window)
                         }
                     }
                 }
-                _ = stderr_abort_rx => {
+                _ = &mut stderr_abort_rx => {
                     log::debug!("stderr reader aborted");
                     break;
                 }
