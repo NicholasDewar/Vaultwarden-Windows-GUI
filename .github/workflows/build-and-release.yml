@@ -22,21 +22,39 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
+      - name: Cache npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('package-lock.json') }}
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Cache Tauri target
+        uses: actions/cache@v4
+        with:
+          path: src-tauri/target
+          key: tauri-target-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: tauri-target-
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Install OpenSSL
         run: |
           choco install openssl -y
           echo "C:\Program Files\OpenSSL-Win64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Get latest tag and calculate version
         id: version
