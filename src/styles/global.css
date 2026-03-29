@@ -494,6 +494,7 @@ body {
   position: relative;
   z-index: 10;
   min-height: auto;
+  overflow: visible;
 }
 
 .service-status {
