@@ -1,5 +1,6 @@
 use std::time::Duration;
 use tauri::{AppHandle, Emitter};
+use tauri::async_runtime::spawn;
 use tokio::time::sleep;
 
 use crate::commands::process::{CertToolsStatus, ValidationResult, VaultwardenConfig};
@@ -15,7 +16,7 @@ impl BackgroundTasks {
 
     pub fn start(&self) {
         let app = self.app_handle.clone();
-        tokio::spawn(async move {
+        spawn(async move {
             sleep(Duration::from_millis(500)).await;
             
             let t1 = Self::check_cert_tools(app.clone());
