@@ -463,17 +463,16 @@ pub fn check_webvault() -> bool {
 
 #[tauri::command]
 pub fn get_webvault_version() -> Option<String> {
-    if let Ok(meta) = std::fs::metadata("web-vault") {
-        if meta.len() > 0 {
-            let js_path = Path::new("web-vault");
-            if js_path.join("manifest.json").exists() {
-                if let Ok(content) = std::fs::read_to_string(js_path.join("manifest.json")) {
-                    if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                        return json.get("version")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string());
-                    }
-                }
+    let js_path = Path::new("web-vault");
+    if !js_path.join("index.html").exists() {
+        return None;
+    }
+    if js_path.join("manifest.json").exists() {
+        if let Ok(content) = std::fs::read_to_string(js_path.join("manifest.json")) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                return json.get("version")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
             }
         }
     }
