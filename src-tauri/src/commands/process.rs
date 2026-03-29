@@ -464,11 +464,3 @@ fn generate_cert_with_openssl(cert_path: &str, key_path: &str, ip: &str) -> Resu
     );
     Ok(())
 }
-
-    log::info!(
-        "Generated certificates with openssl: {} and {}",
-        cert_path,
-        key_path
-    );
-    Ok(())
-}
