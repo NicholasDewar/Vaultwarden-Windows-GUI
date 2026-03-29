@@ -271,13 +271,14 @@ body {
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  padding: var(--space-xl);
+  padding: var(--space-lg);
   transition: all var(--transition-normal);
   animation: fadeInUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
   box-shadow: 
     var(--shadow-lg),
     var(--inner-glow);
   position: relative;
+  overflow: hidden;
 }
 
 .panel::before {
@@ -745,22 +746,22 @@ body {
 .env-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xl);
+  gap: var(--space-md);
 }
 
 .env-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-xl);
+  gap: var(--space-sm);
+  padding: var(--space-md);
   background: var(--bg-glass);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   transition: all var(--transition-spring);
   position: relative;
   overflow: hidden;
-  min-height: 180px;
+  min-height: 140px;
 }
 
 .env-item::before {
@@ -796,8 +797,8 @@ body {
 }
 
 .env-icon {
-  width: 60px;
-  height: 60px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -860,7 +861,7 @@ body {
 .config-form {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-xl);
+  gap: var(--space-md);
 }
 
 .form-section {
@@ -869,15 +870,15 @@ body {
 
 .form-section-title {
   grid-column: 1 / -1;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 1.2px;
-  padding-bottom: var(--space-sm);
+  letter-spacing: 1px;
+  padding-bottom: var(--space-xs);
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: var(--space-sm);
-  margin-top: var(--space-md);
+  margin-bottom: var(--space-xs);
+  margin-top: var(--space-sm);
 }
 
 .form-section-title:first-child {
@@ -887,7 +888,7 @@ body {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .form-group.full-width {
@@ -895,19 +896,19 @@ body {
 }
 
 .form-label {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   letter-spacing: 0.2px;
 }
 
 .form-input {
-  padding: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   background: var(--bg-glass);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   transition: all var(--transition-fast);
 }
 
