@@ -1,12 +1,12 @@
 use chrono::Local;
-use flate2::read::GzDecoder;
 use futures_util::StreamExt;
 use tauri::Emitter;
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io;
 use std::path::Path;
 use std::process::Command;
-use tar::Archive;
+use zip::ZipArchive;
 use tokio::io::AsyncWriteExt;
 
 const DEFAULT_BACKUP_DIR: &str = "backups";
@@ -130,21 +130,21 @@ pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
         "file": "sqlite3"
     }));
 
-    let file_data = fs::read(&zip_path).map_err(|e| e.to_string())?;
-    let decoder = GzDecoder::new(&file_data[..]);
-    let mut archive = Archive::new(decoder);
+    let file = fs::File::open(&zip_path).map_err(|e| e.to_string())?;
+    let mut archive = ZipArchive::new(file).map_err(|e| e.to_string())?;
 
     let mut found_sqlite3 = false;
-    for entry in archive.entries().map_err(|e| e.to_string())? {
-        let mut entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path().map_err(|e| e.to_string())?;
-        
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
+        let path = entry.enclosed_name().map_err(|e| e.to_string())?;
+
         if path.file_name()
             .and_then(|n| n.to_str())
             .map(|n| n.starts_with("sqlite3") && n.ends_with(".exe"))
-            .unwrap_or(false) 
+            .unwrap_or(false)
         {
-            entry.unpack(&sqlite3_exe).map_err(|e| e.to_string())?;
+            let mut outfile = fs::File::create(&sqlite3_exe).map_err(|e| e.to_string())?;
+            io::copy(&mut entry, &mut outfile).map_err(|e| e.to_string())?;
             found_sqlite3 = true;
             break;
         }
