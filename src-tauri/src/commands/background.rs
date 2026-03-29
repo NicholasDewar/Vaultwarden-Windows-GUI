@@ -19,13 +19,9 @@ impl BackgroundTasks {
         spawn(async move {
             sleep(Duration::from_millis(500)).await;
             
-            let t1 = Self::check_cert_tools(app.clone());
-            let t2 = Self::check_versions(app.clone());
-            let t3 = Self::poll_status(app.clone());
-            
-            t1.await;
-            t2.await;
-            t3.await;
+            spawn(Self::check_cert_tools(app.clone()));
+            spawn(Self::check_versions(app.clone()));
+            spawn(Self::poll_status(app));
         });
     }
 
