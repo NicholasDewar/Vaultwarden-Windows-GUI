@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -36,16 +38,50 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Get latest tag and calculate version
+        id: version
+        run: |
+          $tags = git tag --list 'v*' --sort=-v:refname | Select-Object -First 1
+          if ($tags) {
+            $version = $tags -replace '^v', ''
+            $parts = $version.Split('.')
+            $major = [int]$parts[0]
+            $minor = [int]$parts[1]
+            $patch = [int]$parts[2]
+            if ($patch -eq 9) {
+              $patch = 0
+              $minor += 1
+            } else {
+              $patch += 1
+            }
+            $newVersion = "$major.$minor.$patch"
+          } else {
+            $newVersion = "0.0.1"
+          }
+          $newTag = "v$newVersion"
+          Write-Host "Latest tag: $tags"
+          Write-Host "New version: $newVersion"
+          Write-Host "New tag: $newTag"
+          echo "VERSION=$newVersion" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "TAG=$newTag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Update version in tauri.conf.json
+        run: |
+          $config = Get-Content 'src-tauri/tauri.conf.json' | ConvertFrom-Json
+          $config.version = "${{ env.VERSION }}"
+          $config | ConvertTo-Json -Depth 10 | Set-Content 'src-tauri/tauri.conf.json' -Encoding utf8
+          Get-Content 'src-tauri/tauri.conf.json'
+
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        run: npm run tauri build
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG }}
+          name: 'Vaultwarden Manager ${{ env.VERSION }}'
+          body: 'Automated release'
+          draft: true
+          files: src-tauri/target/release/bundle/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: v__VERSION__
-          releaseName: 'Vaultwarden Manager v__VERSION__'
-          releaseBody: 'Automated release'
-          releaseDraft: true
-          prerelease: false
-          changesInPath: '.'
-          tagPattern: 'v*'
-          versionStrategy: 'increment-patch'
