@@ -1,8 +1,8 @@
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::io::{BufRead, BufReader};
-use std::thread;
 use std::sync::Mutex;
+use std::thread;
 use tauri::Emitter;
 
 pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<std::process::Child>>> =
@@ -54,10 +54,7 @@ pub struct CertToolsStatus {
 const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[tauri::command]
-pub fn start_vaultwarden(
-    config: VaultwardenConfig,
-    window: tauri::Window,
-) -> Result<(), String> {
+pub fn start_vaultwarden(config: VaultwardenConfig, window: tauri::Window) -> Result<(), String> {
     let _ = stop_vaultwarden();
 
     let vaultwarden_exe = find_vaultwarden_exe()?;
@@ -79,6 +76,16 @@ pub fn start_vaultwarden(
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
+    if config.enable_tls {
+        cmd.env(
+            "ROCKET_TLS",
+            format!(
+                "{{certs=\"{}\",key=\"{}\"}}",
+                config.cert_path, config.key_path
+            ),
+        );
+    }
+
     let mut child = cmd.spawn().map_err(|e| e.to_string())?;
 
     let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
@@ -88,10 +95,13 @@ pub fn start_vaultwarden(
     thread::spawn(move || {
         let reader = BufReader::new(stdout);
         for line in reader.lines().map_while(Result::ok) {
-            let _ = window_clone.emit("vaultwarden-log", serde_json::json!({
-                "level": "INFO",
-                "message": line
-            }));
+            let _ = window_clone.emit(
+                "vaultwarden-log",
+                serde_json::json!({
+                    "level": "INFO",
+                    "message": line
+                }),
+            );
         }
     });
 
@@ -106,61 +116,13 @@ pub fn start_vaultwarden(
             } else {
                 "INFO"
             };
-            let _ = window_clone.emit("vaultwarden-log", serde_json::json!({
-                "level": level,
-                "message": line
-            }));
-        }
-    });
-
-    let process_mutex = VAULTWARDEN_PROCESS.get_or_init(|| Mutex::new(None));
-    let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
-    *guard = Some(child);
-
-    let _ = window.emit("status-changed", true);
-
-    log::info!("Vaultwarden started with config: {:?}", config);
-    Ok(())
-}
-
-    if config.enable_tls {
-        cmd.env("ROCKET_TLS", format!(
-            "{{certs=\"{}\",key=\"{}\"}}",
-            config.cert_path, config.key_path
-        ));
-    }
-
-    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
-
-    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
-    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
-
-    let window_clone = window.clone();
-    tokio::spawn(async move {
-        let mut reader = BufReader::new(stdout).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
-            let _ = window_clone.emit("vaultwarden-log", serde_json::json!({
-                "level": "INFO",
-                "message": line
-            }));
-        }
-    });
-
-    let window_clone = window.clone();
-    tokio::spawn(async move {
-        let mut reader = BufReader::new(stderr).lines();
-        while let Ok(Some(line)) = reader.next_line().await {
-            let level = if line.to_lowercase().contains("error") {
-                "ERROR"
-            } else if line.to_lowercase().contains("warn") {
-                "WARN"
-            } else {
-                "INFO"
-            };
-            let _ = window_clone.emit("vaultwarden-log", serde_json::json!({
-                "level": level,
-                "message": line
-            }));
+            let _ = window_clone.emit(
+                "vaultwarden-log",
+                serde_json::json!({
+                    "level": level,
+                    "message": line
+                }),
+            );
         }
     });
 
@@ -257,7 +219,8 @@ pub fn validate_environment(config: VaultwardenConfig) -> ValidationResult {
         }
     }
 
-    let is_ready = binary_exists && webvault_exists && (!config.enable_tls || (cert_exists && key_exists));
+    let is_ready =
+        binary_exists && webvault_exists && (!config.enable_tls || (cert_exists && key_exists));
 
     ValidationResult {
         binary_exists,
@@ -294,7 +257,12 @@ pub fn generate_certificates(
             &format!("subjectAltName=DNS:localhost,IP:127.0.0.1,IP:{}", ip),
         ])
         .output()
-        .map_err(|e| format!("Failed to run openssl: {}. Make sure OpenSSL is installed.", e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to run openssl: {}. Make sure OpenSSL is installed.",
+                e
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -398,19 +366,36 @@ pub fn generate_certificates_with_tool(
 fn generate_cert_with_mkcert(cert_path: &str, key_path: &str, ip: &str) -> Result<(), String> {
     let output = std::process::Command::new("mkcert")
         .args(&[
-            "-key-file", key_path,
-            "-cert-file", cert_path,
-            "localhost", "127.0.0.1", "::1", ip,
+            "-key-file",
+            key_path,
+            "-cert-file",
+            cert_path,
+            "localhost",
+            "127.0.0.1",
+            "::1",
+            ip,
         ])
         .output()
-        .map_err(|e| format!("Failed to run mkcert: {}. Make sure mkcert is installed.", e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to run mkcert: {}. Make sure mkcert is installed.",
+                e
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Failed to generate certificates with mkcert: {}", stderr));
+        return Err(format!(
+            "Failed to generate certificates with mkcert: {}",
+            stderr
+        ));
     }
 
-    log::info!("Generated certificates with mkcert: {} and {}", cert_path, key_path);
+    log::info!(
+        "Generated certificates with mkcert: {} and {}",
+        cert_path,
+        key_path
+    );
     Ok(())
 }
 
@@ -424,19 +409,35 @@ fn generate_cert_with_openssl(cert_path: &str, key_path: &str, ip: &str) -> Resu
             "-nodes",
             "-days",
             "3650",
-            "-keyout", key_path,
-            "-out", cert_path,
-            "-subj", "/CN=localhost",
-            "-addext", &format!("subjectAltName=DNS:localhost,IP:127.0.0.1,IP:{}", ip),
+            "-keyout",
+            key_path,
+            "-out",
+            cert_path,
+            "-subj",
+            "/CN=localhost",
+            "-addext",
+            &format!("subjectAltName=DNS:localhost,IP:127.0.0.1,IP:{}", ip),
         ])
         .output()
-        .map_err(|e| format!("Failed to run openssl: {}. Make sure OpenSSL is installed.", e))?;
+        .map_err(|e| {
+            format!(
+                "Failed to run openssl: {}. Make sure OpenSSL is installed.",
+                e
+            )
+        })?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Failed to generate certificates with openssl: {}", stderr));
+        return Err(format!(
+            "Failed to generate certificates with openssl: {}",
+            stderr
+        ));
     }
 
-    log::info!("Generated certificates with openssl: {} and {}", cert_path, key_path);
+    log::info!(
+        "Generated certificates with openssl: {} and {}",
+        cert_path,
+        key_path
+    );
     Ok(())
 }
