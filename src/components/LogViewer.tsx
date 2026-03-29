@@ -1,6 +1,7 @@
 import { Component, Show, For, createEffect } from "solid-js";
 import { useI18n } from "../i18n";
 import { appStore } from "../stores/appStore";
+import { Save, Trash2 } from "lucide-solid";
 
 export const LogViewer: Component = () => {
   const { t } = useI18n();
@@ -40,14 +41,14 @@ export const LogViewer: Component = () => {
             onClick={handleSaveLogs}
             disabled={store.logs().length === 0}
           >
-            💾 {t("logs.save")}
+            <Save size={14} /> {t("logs.save")}
           </button>
           <button
             class="btn btn-secondary btn-small"
             onClick={() => store.clearLogs()}
             disabled={store.logs().length === 0}
           >
-            🗑 {t("logs.clear")}
+            <Trash2 size={14} /> {t("logs.clear")}
           </button>
         </div>
       </div>

@@ -54,10 +54,10 @@ export const BackupPanel: Component = () => {
       const hours = Math.floor(diff / 3600000);
       const days = Math.floor(diff / 86400000);
       
-      if (minutes < 1) return "刚刚";
-      if (minutes < 60) return `${minutes} 分钟前`;
-      if (hours < 24) return `${hours} 小时前`;
-      return `${days} 天前`;
+      if (minutes < 1) return t("backup.justNow");
+      if (minutes < 60) return t("backup.minutesAgo", { n: minutes });
+      if (hours < 24) return t("backup.hoursAgo", { n: hours });
+      return t("backup.daysAgo", { n: days });
     } catch {
       return dateStr;
     }
@@ -152,20 +152,22 @@ export const BackupPanel: Component = () => {
           when={store.backups().length > 0}
           fallback={
             <div class="no-data">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <ellipse cx="12" cy="5" rx="9" ry="3" />
-                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-              </svg>
+              <div class="no-data-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <ellipse cx="12" cy="5" rx="9" ry="3" />
+                  <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                  <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                </svg>
+              </div>
               <span>{t("backup.noBackup")}</span>
             </div>
           }
         >
           <div class="backup-list-header">
             <span class="backup-col-name">{t("backup.database")}</span>
-            <span class="backup-col-size">大小</span>
-            <span class="backup-col-time">时间</span>
-            <span class="backup-col-actions">操作</span>
+            <span class="backup-col-size">{t("backup.size")}</span>
+            <span class="backup-col-time">{t("backup.time")}</span>
+            <span class="backup-col-actions">{t("backup.actions")}</span>
           </div>
           <For each={store.backups()}>
             {(backup) => (

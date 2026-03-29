@@ -121,6 +121,13 @@ export const zh = {
     restoreFailed: "恢复失败",
     scheduled: "定时任务已创建",
     scheduledDeleted: "定时任务已删除",
+    size: "大小",
+    time: "时间",
+    actions: "操作",
+    justNow: "刚刚",
+    minutesAgo: "{n} 分钟前",
+    hoursAgo: "{n} 小时前",
+    daysAgo: "{n} 天前",
   },
   actions: {
     start: "启动 Vaultwarden",

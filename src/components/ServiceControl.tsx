@@ -1,6 +1,7 @@
 import { Component, Show, For, createSignal } from "solid-js";
 import { useI18n } from "../i18n";
 import { appStore } from "../stores/appStore";
+import { Globe, Check, X, Play, Square, RefreshCw } from "lucide-solid";
 
 interface ServiceControlProps {
   onStart: () => void;
@@ -23,7 +24,7 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
       
       <div class="service-status">
         <div class={`status-indicator-large ${store.isRunning() ? "running" : "stopped"}`}>
-          <span>{store.isRunning() ? "✓" : "✗"}</span>
+          <span>{store.isRunning() ? <Check size={24} /> : <X size={24} />}</span>
         </div>
         
         <div class="status-text-large">
@@ -40,7 +41,7 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
             onClick={() => setIpDropdownOpen(!ipDropdownOpen())}
             aria-expanded={ipDropdownOpen()}
           >
-            <span class="ip-icon">🌐</span>
+            <span class="ip-icon"><Globe size={16} /></span>
             <span class="ip-value">{store.selectedIp() || t("status.unknown")}</span>
             <span class={`ip-arrow ${ipDropdownOpen() ? "open" : ""}`}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
@@ -84,10 +85,7 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
             onClick={() => store.getLocalIps()}
             title={t("status.refreshIp")}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M14 8A6 6 0 1 1 8 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M14 2V6H10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+            <RefreshCw size={16} />
           </button>
         </div>
       </div>
@@ -96,7 +94,7 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
         when={!store.isRunning()}
         fallback={
           <button class="btn btn-danger btn-start" onClick={props.onStop}>
-            ⏹ {t("actions.stop")}
+            <Square size={16} /> {t("actions.stop")}
           </button>
         }
       >
@@ -105,7 +103,7 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
           onClick={props.onStart}
           disabled={store.validation()?.is_ready === false}
         >
-          🚀 {t("actions.start")}
+          <Play size={16} /> {t("actions.start")}
         </button>
       </Show>
     </div>

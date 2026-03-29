@@ -121,6 +121,13 @@ export const en = {
     restoreFailed: "Restore failed",
     scheduled: "Scheduled task created",
     scheduledDeleted: "Scheduled task deleted",
+    size: "Size",
+    time: "Time",
+    actions: "Actions",
+    justNow: "Just now",
+    minutesAgo: "{n} minutes ago",
+    hoursAgo: "{n} hours ago",
+    daysAgo: "{n} days ago",
   },
   actions: {
     start: "Start Vaultwarden",

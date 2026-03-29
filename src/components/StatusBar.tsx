@@ -1,6 +1,7 @@
 import { Component, Show, For } from "solid-js";
 import { useI18n } from "../i18n";
 import { appStore } from "../stores/appStore";
+import { Settings, Globe, Shield, Check, X } from "lucide-solid";
 
 export const StatusBar: Component = () => {
   const { t } = useI18n();
@@ -13,7 +14,9 @@ export const StatusBar: Component = () => {
       <div class="status-grid">
         <div class="status-row">
           <div class="status-info">
-            <div class="status-icon">⚙️</div>
+            <div class="status-icon">
+              <Settings size={18} />
+            </div>
             <div>
               <div class="status-label">{t("status.vaultwarden")}</div>
               <div class="status-value">
@@ -25,19 +28,21 @@ export const StatusBar: Component = () => {
           </div>
           <Show when={store.binaryVersion()}>
             <span class="status-badge success">
-              ✓ {t("versions.current")}
+              <Check size={12} /> {t("versions.current")}
             </span>
           </Show>
           <Show when={!store.binaryVersion()}>
             <span class="status-badge warning">
-              ✗ {t("status.notInstalled")}
+              <X size={12} /> {t("status.notInstalled")}
             </span>
           </Show>
         </div>
 
         <div class="status-row">
           <div class="status-info">
-            <div class="status-icon">🌐</div>
+            <div class="status-icon">
+              <Globe size={18} />
+            </div>
             <div>
               <div class="status-label">{t("status.webvault")}</div>
               <div class="status-value">
@@ -49,19 +54,21 @@ export const StatusBar: Component = () => {
           </div>
           <Show when={store.webvaultVersion()}>
             <span class="status-badge success">
-              ✓ {t("versions.current")}
+              <Check size={12} /> {t("versions.current")}
             </span>
           </Show>
           <Show when={!store.webvaultVersion()}>
             <span class="status-badge warning">
-              ✗ {t("status.notInstalled")}
+              <X size={12} /> {t("status.notInstalled")}
             </span>
           </Show>
         </div>
 
         <div class="status-row">
           <div class="status-info">
-            <div class="status-icon">🔒</div>
+            <div class="status-icon">
+              <Shield size={18} />
+            </div>
             <div>
               <div class="status-label">{t("env.certificate")}</div>
               <div class="status-value">
@@ -72,10 +79,10 @@ export const StatusBar: Component = () => {
             </div>
           </div>
           <Show when={store.validation()?.cert_exists}>
-            <span class="status-badge success">✓</span>
+            <span class="status-badge success"><Check size={12} /></span>
           </Show>
           <Show when={!store.validation()?.cert_exists && store.config().enable_tls}>
-            <span class="status-badge warning">✗</span>
+            <span class="status-badge warning"><X size={12} /></span>
           </Show>
         </div>
       </div>

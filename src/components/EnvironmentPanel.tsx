@@ -1,6 +1,7 @@
 import { Component, Show } from "solid-js";
 import { useI18n } from "../i18n";
 import { appStore } from "../stores/appStore";
+import { Settings, Globe, Shield, Check, X, AlertTriangle, Download, ArrowUp } from "lucide-solid";
 
 interface EnvironmentPanelProps {
   onDownloadBinary: () => void;
@@ -39,11 +40,11 @@ export const EnvironmentPanel: Component<EnvironmentPanelProps> = (props) => {
       
       <div class="env-grid">
         <div class={`env-item ${store.validation()?.binary_exists ? "ready" : ""}`}>
-          <div class="env-icon">⚙️</div>
+          <div class="env-icon"><Settings size={20} /></div>
           <div class="env-name">{t("env.binary")}</div>
           <div class={`env-status ${store.validation()?.binary_exists ? "ready" : ""}`}>
             <Show when={store.validation()?.binary_exists} fallback={t("env.missing")}>
-              ✓ {store.binaryVersion() || t("versions.downloaded")}
+              <Check size={14} /> {store.binaryVersion() || t("versions.downloaded")}
             </Show>
           </div>
           <Show when={!store.validation()?.binary_exists}>
@@ -59,16 +60,16 @@ export const EnvironmentPanel: Component<EnvironmentPanelProps> = (props) => {
             </button>
           </Show>
           <Show when={store.validation()?.binary_exists && store.binaryVersion() !== store.binaryLatestVersion()}>
-            <span class="status-badge warning">↑ {t("status.updateAvailable")}</span>
+            <span class="status-badge warning"><ArrowUp size={12} /> {t("status.updateAvailable")}</span>
           </Show>
         </div>
 
         <div class={`env-item ${store.validation()?.webvault_exists ? "ready" : ""}`}>
-          <div class="env-icon">🌐</div>
+          <div class="env-icon"><Globe size={20} /></div>
           <div class="env-name">{t("env.webvault")}</div>
           <div class={`env-status ${store.validation()?.webvault_exists ? "ready" : ""}`}>
             <Show when={store.validation()?.webvault_exists} fallback={t("env.missing")}>
-              ✓ {store.webvaultVersion() || t("versions.downloaded")}
+              <Check size={14} /> {store.webvaultVersion() || t("versions.downloaded")}
             </Show>
           </div>
           <Show when={!store.validation()?.webvault_exists}>
@@ -86,11 +87,11 @@ export const EnvironmentPanel: Component<EnvironmentPanelProps> = (props) => {
         </div>
 
         <div class={`env-item ${store.validation()?.cert_exists ? "ready" : ""}`}>
-          <div class="env-icon">🔒</div>
+          <div class="env-icon"><Shield size={20} /></div>
           <div class="env-name">{t("env.certificate")}</div>
           <div class={`env-status ${store.validation()?.cert_exists ? "ready" : ""}`}>
             <Show when={store.validation()?.cert_exists} fallback={t("env.missing")}>
-              ✓ {t("env.ready")}
+              <Check size={14} /> {t("env.ready")}
             </Show>
           </div>
           
@@ -126,7 +127,7 @@ export const EnvironmentPanel: Component<EnvironmentPanelProps> = (props) => {
 
               <Show when={store.certToolsStatus()?.mkcert_available && !store.certToolsStatus()?.mkcert_ca_installed}>
                 <div class="mkcert-ca-status">
-                  <span class="status-warning">⚠️ {getMkcertStatusText()}</span>
+                  <span class="status-warning"><AlertTriangle size={14} /> {getMkcertStatusText()}</span>
                   <button
                     class="btn btn-primary btn-small"
                     onClick={() => store.installMkcertCA()}
@@ -138,7 +139,7 @@ export const EnvironmentPanel: Component<EnvironmentPanelProps> = (props) => {
 
               <Show when={isMkcertReady()}>
                 <div class="mkcert-ca-status ready">
-                  ✓ {getMkcertStatusText()}
+                  <Check size={14} /> {getMkcertStatusText()}
                 </div>
               </Show>
             </Show>
