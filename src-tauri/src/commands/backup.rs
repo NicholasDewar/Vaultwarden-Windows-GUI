@@ -1,6 +1,7 @@
 use chrono::Local;
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
+use tauri::Emitter;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -97,7 +98,7 @@ pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
     }));
 
     let file_data = fs::read(&zip_path).map_err(|e| e.to_string())?;
-    let decoder = GzDecoder::new(&file_data);
+    let decoder = GzDecoder::new(&file_data[..]);
     let mut archive = Archive::new(decoder);
 
     let mut found_sqlite3 = false;

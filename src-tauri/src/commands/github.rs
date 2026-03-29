@@ -531,7 +531,7 @@ pub async fn check_binary_update() -> Result<BinaryUpdateInfo, String> {
     let webvault_version = get_webvault_version();
     let webvault_normalized = webvault_version.as_ref().map(|v| normalize_version(v));
     
-    let webvault_latest = get_latest_webvault_version().await.ok();
+    let webvault_latest = get_latest_webvault_version().await.ok().map(|v| v.version);
     let webvault_latest_normalized = webvault_latest.as_ref().map(|v| normalize_version(v));
     
     let webvault_has_update = match (&webvault_normalized, &webvault_latest_normalized) {
