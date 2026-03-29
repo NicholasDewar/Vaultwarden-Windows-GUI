@@ -51,17 +51,6 @@ export const ConfigPanel: Component<ConfigPanelProps> = (props) => {
           />
         </div>
         
-        <div class="form-group full-width">
-          <label class="form-label">{t("config.domain")}</label>
-          <input
-            type="text"
-            class="form-input"
-            value={store.config().domain}
-            onInput={(e) => handleInputChange("domain", e.currentTarget.value)}
-            placeholder="https://192.168.1.100:8443"
-          />
-        </div>
-        
         <div class="form-section-title">{t("config.tlsSettings")}</div>
         
         <div class="form-group full-width">
