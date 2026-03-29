@@ -1,14 +1,11 @@
 use std::path::Path;
-use std::process::Stdio;
-use tauri::Emitter;
+use std::process::{Command, Stdio};
+use std::io::{BufRead, BufReader};
+use std::thread;
 use std::sync::Mutex;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
+use tauri::Emitter;
 
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
-pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<tokio::process::Child>>> =
+pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<std::process::Child>>> =
     std::sync::OnceLock::new();
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -53,12 +50,15 @@ pub struct CertToolsStatus {
     pub mkcert_ca_installed: bool,
 }
 
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 #[tauri::command]
-pub async fn start_vaultwarden(
+pub fn start_vaultwarden(
     config: VaultwardenConfig,
     window: tauri::Window,
 ) -> Result<(), String> {
-    let _ = stop_vaultwarden().await;
+    let _ = stop_vaultwarden();
 
     let vaultwarden_exe = find_vaultwarden_exe()?;
 
@@ -76,10 +76,52 @@ pub async fn start_vaultwarden(
 
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
+
+    let mut child = cmd.spawn().map_err(|e| e.to_string())?;
+
+    let stdout = child.stdout.take().ok_or("Failed to capture stdout")?;
+    let stderr = child.stderr.take().ok_or("Failed to capture stderr")?;
+
+    let window_clone = window.clone();
+    thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines().map_while(Result::ok) {
+            let _ = window_clone.emit("vaultwarden-log", serde_json::json!({
+                "level": "INFO",
+                "message": line
+            }));
+        }
+    });
+
+    let window_clone = window.clone();
+    thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines().map_while(Result::ok) {
+            let level = if line.to_lowercase().contains("error") {
+                "ERROR"
+            } else if line.to_lowercase().contains("warn") {
+                "WARN"
+            } else {
+                "INFO"
+            };
+            let _ = window_clone.emit("vaultwarden-log", serde_json::json!({
+                "level": level,
+                "message": line
+            }));
+        }
+    });
+
+    let process_mutex = VAULTWARDEN_PROCESS.get_or_init(|| Mutex::new(None));
+    let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
+    *guard = Some(child);
+
+    let _ = window.emit("status-changed", true);
+
+    log::info!("Vaultwarden started with config: {:?}", config);
+    Ok(())
+}
 
     if config.enable_tls {
         cmd.env("ROCKET_TLS", format!(
@@ -133,7 +175,7 @@ pub async fn start_vaultwarden(
 }
 
 #[tauri::command]
-pub async fn stop_vaultwarden() -> Result<(), String> {
+pub fn stop_vaultwarden() -> Result<(), String> {
     let process_mutex = VAULTWARDEN_PROCESS.get_or_init(|| Mutex::new(None));
     let child_opt = {
         let mut guard = process_mutex.lock().map_err(|e| e.to_string())?;
@@ -141,8 +183,8 @@ pub async fn stop_vaultwarden() -> Result<(), String> {
     };
 
     if let Some(mut child) = child_opt {
-        child.kill().await.map_err(|e| e.to_string())?;
-        child.wait().await.map_err(|e| e.to_string())?;
+        child.kill().map_err(|e| e.to_string())?;
+        child.wait().map_err(|e| e.to_string())?;
         log::info!("Vaultwarden stopped");
     }
 
