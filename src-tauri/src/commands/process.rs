@@ -5,6 +5,9 @@ use std::sync::Mutex;
 use std::thread;
 use tauri::Emitter;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<std::process::Child>>> =
     std::sync::OnceLock::new();
 
