@@ -33,7 +33,7 @@ export const BackupSettings: Component = () => {
 
   const handleSave = async () => {
     try {
-      await store.saveBackupConfig(store.backupConfig());
+      await store.saveBackupConfig();
       store.setSuccessMessage(t("config.saved"));
       store.setError(null);
       setTimeout(() => store.setSuccessMessage(null), 2000);

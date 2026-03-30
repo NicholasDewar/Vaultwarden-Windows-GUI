@@ -2,6 +2,7 @@ import { createSignal, createRoot, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
+import { load, Store } from "@tauri-apps/plugin-store";
 
 export interface ReleaseInfo {
   tag: string;
@@ -89,6 +90,21 @@ export interface ActivityStatus {
   minutes_since_activity: number;
 }
 
+export interface UnifiedConfig {
+  address: string;
+  port: number;
+  domain: string;
+  enable_tls: boolean;
+  cert_path: string;
+  key_path: string;
+  data_folder: string;
+  backup_enabled: boolean;
+  backup_min_diff_interval: number;
+  backup_keep_versions: number;
+  backup_custom_dir: string | null;
+  autostart_enabled: boolean;
+}
+
 function createAppStore() {
   const [isRunning, setIsRunning] = createSignal(false);
   const [binaryVersion, setBinaryVersion] = createSignal("");
@@ -125,6 +141,17 @@ function createAppStore() {
   const [error, setError] = createSignal<string | null>(null);
   const [successMessage, setSuccessMessage] = createSignal<string | null>(null);
 
+  let configStore: Store | null = null;
+
+  const initConfigStore = async () => {
+    try {
+      configStore = await load('config.json');
+      console.info("Config store initialized");
+    } catch (e) {
+      console.error("Failed to initialize config store:", e);
+    }
+  };
+
   const [backupConfig, setBackupConfig] = createSignal<BackupConfig>({
     enabled: false,
     min_diff_interval: 5,
@@ -152,8 +179,28 @@ function createAppStore() {
 
   const loadConfig = async () => {
     try {
-      const cfg = await invoke<VaultwardenConfig>("load_config");
-      setConfig(cfg);
+      if (!configStore) {
+        await initConfigStore();
+      }
+      const unified = await configStore!.get<UnifiedConfig>('config');
+      if (unified) {
+        setConfig({
+          address: unified.address,
+          port: unified.port,
+          domain: unified.domain,
+          enable_tls: unified.enable_tls,
+          cert_path: unified.cert_path,
+          key_path: unified.key_path,
+          data_folder: unified.data_folder,
+        });
+        setBackupConfig({
+          enabled: unified.backup_enabled,
+          min_diff_interval: unified.backup_min_diff_interval,
+          keep_versions: unified.backup_keep_versions,
+          custom_dir: unified.backup_custom_dir,
+        });
+        setAutostartEnabled(unified.autostart_enabled);
+      }
       console.info("Config loaded successfully");
     } catch (e) {
       console.error("Failed to load config:", e);
@@ -161,10 +208,31 @@ function createAppStore() {
     }
   };
 
-  const saveConfig = async (cfg: VaultwardenConfig) => {
+  const saveConfig = async () => {
     try {
-      await invoke("save_config", { config: cfg });
-      setConfig(cfg);
+      if (!configStore) {
+        await initConfigStore();
+      }
+      const cfg = config();
+      const backup = backupConfig();
+      const autostart = autostartEnabled();
+      const unified: UnifiedConfig = {
+        address: cfg.address,
+        port: cfg.port,
+        domain: cfg.domain,
+        enable_tls: cfg.enable_tls,
+        cert_path: cfg.cert_path,
+        key_path: cfg.key_path,
+        data_folder: cfg.data_folder,
+        backup_enabled: backup.enabled,
+        backup_min_diff_interval: backup.min_diff_interval,
+        backup_keep_versions: backup.keep_versions,
+        backup_custom_dir: backup.custom_dir,
+        autostart_enabled: autostart,
+      };
+      await configStore!.set('config', unified);
+      await configStore!.save();
+      console.info("Config saved successfully");
     } catch (e) {
       console.error("Failed to save config:", e);
       throw e;
@@ -490,22 +558,14 @@ function createAppStore() {
   };
 
   const loadBackupConfig = async () => {
-    try {
-      const cfg = await invoke<BackupConfig>("get_backup_config");
-      setBackupConfig(cfg);
-    } catch (e) {
-      console.error("Failed to load backup config:", e);
-    }
+    // Backup config is now loaded as part of unified config in loadConfig()
+    // This function is kept for compatibility but does nothing
   };
 
-  const saveBackupConfig = async (cfg: BackupConfig) => {
-    try {
-      await invoke("save_backup_config", { config: cfg });
-      setBackupConfig(cfg);
-    } catch (e) {
-      console.error("Failed to save backup config:", e);
-      throw e;
-    }
+  const saveBackupConfig = async () => {
+    // Backup config is now saved as part of unified config in saveConfig()
+    // This function is kept for compatibility but redirects to saveConfig()
+    await saveConfig();
   };
 
   const listBackups = async () => {
@@ -799,10 +859,10 @@ function createAppStore() {
       cleanupListeners();
     }
     cleanupListeners = await setupListeners();
+    await initConfigStore();
     await Promise.all([
         loadConfig(),
         loadAutostartConfig(),
-        loadBackupConfig(),
     ]);
   };
 

@@ -69,7 +69,7 @@ export const ConfigPanel: Component<ConfigPanelProps> = (props) => {
 
   const handleSave = async () => {
     try {
-      await store.saveConfig(store.config());
+      await store.saveConfig();
       await store.validateEnvironment();
     } catch (e) {
       console.error("Save failed:", e);
