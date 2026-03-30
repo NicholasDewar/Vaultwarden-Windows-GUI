@@ -21,6 +21,8 @@ export const zh = {
     updateAvailable: "有更新",
     upToDate: "已是最新",
     checkUpdate: "检查更新",
+    lockIp: "锁定IP",
+    unlockIp: "解锁IP",
   },
   versions: {
     title: "版本管理",

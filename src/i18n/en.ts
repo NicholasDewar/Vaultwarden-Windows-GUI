@@ -21,6 +21,8 @@ export const en = {
     updateAvailable: "Update Available",
     upToDate: "Up to Date",
     checkUpdate: "Check Update",
+    lockIp: "Lock IP",
+    unlockIp: "Unlock IP",
   },
   versions: {
     title: "Version Management",

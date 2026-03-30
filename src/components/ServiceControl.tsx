@@ -1,7 +1,7 @@
 import { Component, Show, For, createSignal } from "solid-js";
 import { useI18n } from "../i18n";
 import { appStore } from "../stores/appStore";
-import { Globe, Check, X, Play, Square, RefreshCw } from "lucide-solid";
+import { Globe, Check, X, Play, Square, RefreshCw, Lock, Unlock } from "lucide-solid";
 
 interface ServiceControlProps {
   onStart: () => void;
@@ -12,6 +12,7 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
   const { t } = useI18n();
   const store = appStore;
   const [ipDropdownOpen, setIpDropdownOpen] = createSignal(false);
+  const [isIpLocked, setIsIpLocked] = createSignal(true);
 
   const handleIpSelect = async (ip: string) => {
     store.setSelectedIp(ip);
@@ -46,11 +47,11 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
           
           <button
             class="ip-trigger"
-            onClick={() => setIpDropdownOpen(!ipDropdownOpen())}
+            onClick={() => !isIpLocked() && setIpDropdownOpen(!ipDropdownOpen())}
             aria-expanded={ipDropdownOpen()}
           >
             <span class="ip-icon"><Globe size={16} /></span>
-            <span class="ip-value">{store.selectedIp() || t("status.unknown")}</span>
+            <span class="ip-value">{isIpLocked() ? store.config().address : (store.selectedIp() || t("status.unknown"))}</span>
             <span class={`ip-arrow ${ipDropdownOpen() ? "open" : ""}`}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -87,6 +88,14 @@ export const ServiceControl: Component<ServiceControlProps> = (props) => {
               </div>
             </div>
           </Show>
+
+          <button
+            class={`btn btn-icon ip-lock ${isIpLocked() ? "active" : ""}`}
+            onClick={() => setIsIpLocked(!isIpLocked())}
+            title={isIpLocked() ? t("status.unlockIp") : t("status.lockIp")}
+          >
+            {isIpLocked() ? <Lock size={16} /> : <Unlock size={16} />}
+          </button>
 
           <button
             class="btn btn-icon btn-secondary ip-refresh"

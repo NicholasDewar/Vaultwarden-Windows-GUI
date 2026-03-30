@@ -735,6 +735,21 @@ body {
   transform: rotate(180deg);
 }
 
+.ip-lock {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  transition: all var(--transition-fast);
+}
+
+.ip-lock.active {
+  color: var(--primary);
+}
+
+.ip-lock:hover {
+  color: var(--primary);
+}
+
 /* ============================================
    Environment Card
    ============================================ */
