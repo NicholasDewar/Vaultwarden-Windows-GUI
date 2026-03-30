@@ -34,9 +34,13 @@ export const BackupSettings: Component = () => {
   const handleSave = async () => {
     try {
       await store.saveBackupConfig(store.backupConfig());
+      store.setSuccessMessage(t("config.saved"));
       store.setError(null);
+      setTimeout(() => store.setSuccessMessage(null), 2000);
     } catch (e) {
       console.error("Save backup config failed:", e);
+      store.setError(String(e));
+      setTimeout(() => store.setError(null), 3000);
     }
   };
 
@@ -135,6 +139,13 @@ export const BackupSettings: Component = () => {
             {t("backup.save")}
           </button>
         </div>
+
+        <Show when={store.successMessage()}>
+          <div class="toast toast-success">{store.successMessage()}</div>
+        </Show>
+        <Show when={store.error()}>
+          <div class="toast toast-error">{store.error()}</div>
+        </Show>
       </div>
     </div>
   );
