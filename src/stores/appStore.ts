@@ -815,6 +815,7 @@ function createAppStore() {
     await Promise.all([
         loadConfig(),
         loadAutostartConfig(),
+        loadBackupConfig(),
     ]);
   };
 

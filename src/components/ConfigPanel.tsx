@@ -37,6 +37,9 @@ export const ConfigPanel: Component<ConfigPanelProps> = (props) => {
     if (addressTimeout) clearTimeout(addressTimeout);
     addressTimeout = setTimeout(() => {
       handleInputChange("address", value);
+      if (value && value !== "0.0.0.0" && value !== "localhost") {
+        props.onIpChange?.(value);
+      }
     }, 300) as unknown as number;
   };
 
