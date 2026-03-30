@@ -24,8 +24,6 @@ A Vaultwarden management GUI for Windows, built with Tauri 2 + SolidJS.
 
 ### Screenshots
 
-#### English
-
 | Light Mode | Dark Mode |
 |------------|-----------|
 | ![English Light](screenshots/05-english-light.png) | ![English Dark](screenshots/04-english-dark.png) |
