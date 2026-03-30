@@ -140,6 +140,8 @@ fn main() {
             commands::logs::get_logs,
             commands::logs::add_log,
             commands::backup::backup_database,
+            commands::backup::get_backup_config,
+            commands::backup::save_backup_config,
             commands::backup::list_backups,
             commands::backup::delete_backup,
             commands::backup::cleanup_old_backups,

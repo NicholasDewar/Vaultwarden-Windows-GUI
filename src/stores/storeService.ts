@@ -1,4 +1,5 @@
 import { load, Store } from "@tauri-apps/plugin-store";
+import { invoke } from "@tauri-apps/api/core";
 
 const STORE_PATH = "config.json";
 
@@ -6,7 +7,7 @@ let storeInstance: Store | null = null;
 
 async function getStore(): Promise<Store> {
   if (!storeInstance) {
-    storeInstance = await load(STORE_PATH, { autoSave: true });
+    storeInstance = await load(STORE_PATH);
   }
   return storeInstance;
 }
@@ -14,7 +15,7 @@ async function getStore(): Promise<Store> {
 export const storeService = {
   async get<T>(key: string): Promise<T | null> {
     const store = await getStore();
-    return store.get<T>(key) ?? null;
+    return (store.get(key) as T | null) ?? null;
   },
 
   async set<T>(key: string, value: T): Promise<void> {
@@ -45,6 +46,11 @@ export const storeService = {
 
   async setBackupConfig(config: BackupConfig): Promise<void> {
     await this.set("backupConfig", config);
+    try {
+      await invoke("save_backup_config", { config });
+    } catch (e) {
+      console.error("Failed to sync backup config to file:", e);
+    }
   },
 };
 
