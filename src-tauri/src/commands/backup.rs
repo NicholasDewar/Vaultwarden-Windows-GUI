@@ -173,7 +173,7 @@ pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
 pub struct BackupConfig {
     pub enabled: bool,
     pub min_diff_interval: u32,
-    pub retention_count: u32,
+    pub keep_versions: u32,
     pub custom_dir: Option<String>,
 }
 
@@ -182,7 +182,7 @@ impl Default for BackupConfig {
         Self {
             enabled: false,
             min_diff_interval: 5,
-            retention_count: 7,
+            keep_versions: 7,
             custom_dir: None,
         }
     }
@@ -372,7 +372,7 @@ pub fn delete_backup(backup_path: String) -> Result<(), String> {
 #[tauri::command]
 pub fn cleanup_old_backups(
     backup_dir: Option<String>,
-    retention_count: u32,
+    keep_versions: u32,
 ) -> Result<u32, String> {
     let dir = resolve_backup_dir(backup_dir)?;
 
@@ -382,11 +382,11 @@ pub fn cleanup_old_backups(
 
     let mut backups = list_backups(Some(dir.clone()))?;
 
-    if backups.len() <= retention_count as usize {
+    if backups.len() <= keep_versions as usize {
         return Ok(0);
     }
 
-    let to_delete = backups.split_off(retention_count as usize);
+    let to_delete = backups.split_off(keep_versions as usize);
     let mut deleted = 0;
 
     for backup in to_delete {

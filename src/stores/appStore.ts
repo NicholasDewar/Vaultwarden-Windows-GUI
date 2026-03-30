@@ -72,7 +72,7 @@ export interface GuiUpdateInfo {
 export interface BackupConfig {
   enabled: boolean;
   min_diff_interval: number;
-  retention_count: number;
+  keep_versions: number;
   custom_dir: string | null;
 }
 
@@ -128,7 +128,7 @@ function createAppStore() {
   const [backupConfig, setBackupConfig] = createSignal<BackupConfig>({
     enabled: false,
     min_diff_interval: 5,
-    retention_count: 7,
+    keep_versions: 7,
     custom_dir: null,
   });
   const [backups, setBackups] = createSignal<BackupInfo[]>([]);
@@ -485,7 +485,7 @@ function createAppStore() {
   const defaultBackupConfig: BackupConfig = {
     enabled: false,
     min_diff_interval: 5,
-    retention_count: 7,
+    keep_versions: 7,
     custom_dir: null,
   };
 
@@ -585,7 +585,7 @@ function createAppStore() {
         invoke("backup_database", { backupDir: backupConfig().custom_dir }),
         invoke("cleanup_old_backups", { 
           backupDir: backupConfig().custom_dir, 
-          retentionCount: backupConfig().retention_count 
+          keepVersions: backupConfig().keep_versions 
         }),
       ]);
       const [backups, lastTime] = await Promise.all([
@@ -619,7 +619,7 @@ function createAppStore() {
         invoke("backup_database", { backupDir: backupConfig().custom_dir }),
         invoke("cleanup_old_backups", { 
           backupDir: backupConfig().custom_dir, 
-          retentionCount: backupConfig().retention_count 
+          keepVersions: backupConfig().keep_versions 
         }),
       ]);
       const [backups, lastTime] = await Promise.all([

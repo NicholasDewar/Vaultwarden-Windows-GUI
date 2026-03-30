@@ -97,7 +97,7 @@ export const en = {
     enable: "Enable Auto Backup",
     interval: "Min Diff Interval",
     intervalMinutes: "minutes",
-    retention: "Keep Backups",
+    retention: "Keep Versions",
     retentionCount: "",
     backupDir: "Backup Directory",
     customDir: "Custom Directory",

@@ -97,7 +97,7 @@ export const zh = {
     enable: "启用自动备份",
     interval: "最小差异间隔",
     intervalMinutes: "分钟",
-    retention: "保留备份数",
+    retention: "保留版本数",
     retentionCount: "个",
     backupDir: "备份目录",
     customDir: "自定义目录",

@@ -17,7 +17,7 @@ export const BackupSettings: Component = () => {
 
   const handleRetentionChange = (value: string) => {
     const count = parseInt(value) || 7;
-    store.setBackupConfig((prev) => ({ ...prev, retention_count: count }));
+    store.setBackupConfig((prev) => ({ ...prev, keep_versions: count }));
   };
 
   const handleCustomDirChange = (value: string) => {
@@ -84,7 +84,7 @@ export const BackupSettings: Component = () => {
               <input
                 type="number"
                 class="form-input styled-number"
-                value={store.backupConfig().retention_count}
+                value={store.backupConfig().keep_versions}
                 onInput={(e) => handleRetentionChange(e.currentTarget.value)}
                 min="1"
                 max="100"
