@@ -12,8 +12,6 @@ use tauri::{
 mod commands;
 
 fn main() {
-    env_logger::init();
-
     let args: Vec<String> = env::args().collect();
     
     if args.contains(&"--backup".to_string()) {
