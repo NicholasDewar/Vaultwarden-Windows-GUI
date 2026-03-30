@@ -24,9 +24,17 @@ A Vaultwarden management GUI for Windows, built with Tauri 2 + SolidJS.
 
 ### Screenshots
 
-![Main Page](screenshots/app-main.png)
+#### English
 
-![Backup Page](screenshots/app-backup.png)
+| Light Mode | Dark Mode |
+|------------|-----------|
+| ![English Light](screenshots/05-english-light.png) | ![English Dark](screenshots/04-english-dark.png) |
+
+#### 中文
+
+| 亮色模式 | 暗色模式 |
+|----------|----------|
+| ![中文亮色](screenshots/03-chinese-light.png) | ![中文暗色](screenshots/02-chinese-dark.png) |
 
 ### Directory Structure
 
@@ -166,9 +174,17 @@ vaultwarden-manager/
 
 ### 截图
 
-![主页面](screenshots/app-main.png)
+#### English
 
-![备份页面](screenshots/app-backup.png)
+| Light Mode | Dark Mode |
+|------------|-----------|
+| ![English Light](screenshots/05-english-light.png) | ![English Dark](screenshots/04-english-dark.png) |
+
+#### 中文
+
+| 亮色模式 | 暗色模式 |
+|----------|----------|
+| ![中文亮色](screenshots/03-chinese-light.png) | ![中文暗色](screenshots/02-chinese-dark.png) |
 
 ### 目录结构
 
