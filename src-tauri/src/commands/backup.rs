@@ -12,7 +12,7 @@ use zip::ZipArchive;
 use tokio::io::AsyncWriteExt;
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
 
-use super::utils::{copy_atomic, write_atomic_string};
+use super::utils::copy_atomic;
 
 const DEFAULT_BACKUP_DIR: &str = "backups";
 const DATABASE_PATH: &str = "data/db.sqlite3";
@@ -224,7 +224,6 @@ fn get_database_path() -> String {
     DATABASE_PATH.to_string()
 }
 
-#[tauri::command]
 pub fn get_backup_config() -> Result<BackupConfig, String> {
     let config_path = get_config_path()?;
 
@@ -235,15 +234,6 @@ pub fn get_backup_config() -> Result<BackupConfig, String> {
     let json = fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
     let config: BackupConfig = serde_json::from_str(&json).map_err(|e| e.to_string())?;
     Ok(config)
-}
-
-#[tauri::command]
-pub fn save_backup_config(config: BackupConfig) -> Result<(), String> {
-    let config_path = get_config_path()?;
-    let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
-    write_atomic_string(&config_path, &json)?;
-    log::info!("Backup config saved");
-    Ok(())
 }
 
 fn get_config_path() -> Result<std::path::PathBuf, String> {
@@ -476,19 +466,9 @@ fn update_last_backup_time() {
     }
 }
 
-fn get_base_backup_path() -> Option<String> {
-    BASE_BACKUP_PATH.lock().ok()?.as_deref().map(|s| s.to_string())
-}
-
 fn set_base_backup_path(path: String) {
     if let Ok(mut guard) = BASE_BACKUP_PATH.lock() {
         *guard = Some(path);
-    }
-}
-
-fn clear_base_backup_path() {
-    if let Ok(mut guard) = BASE_BACKUP_PATH.lock() {
-        *guard = None;
     }
 }
 

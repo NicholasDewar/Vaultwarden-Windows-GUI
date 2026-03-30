@@ -34,30 +34,6 @@ fn get_language_path() -> Result<PathBuf, String> {
     Ok(config_path)
 }
 
-#[tauri::command]
-pub fn save_config(config: VaultwardenConfig) -> Result<(), String> {
-    let config_path = get_config_path()?;
-    let json =
-        serde_json::to_string_pretty(&config).map_err(|e| format!("Serialization error: {}", e))?;
-
-    if let Some(parent) = config_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create config directory: {}", e))?;
-        }
-    }
-
-    write_atomic_string(&config_path, &json)?;
-    log::info!("Config saved to {:?}", config_path);
-    log::debug!("Config content: {}", json);
-    Ok(())
-}
-
-#[tauri::command]
-pub fn load_config() -> Result<VaultwardenConfig, String> {
-    Ok(load_config_internal())
-}
-
 pub fn load_config_internal() -> VaultwardenConfig {
     let config_path = match get_config_path() {
         Ok(p) => p,
