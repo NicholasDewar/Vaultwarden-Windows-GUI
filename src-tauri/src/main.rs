@@ -49,7 +49,8 @@ fn main() {
 
             let _tray = TrayIconBuilder::new()
                 .icon(Image::from_path("icons/icon.png").unwrap_or_else(|_| {
-                    Image::from_bytes(include_bytes!("../icons/icon.png")).unwrap()
+                    Image::from_bytes(include_bytes!("../icons/icon.png"))
+                        .expect("Failed to load embedded icon")
                 }))
                 .menu(&menu)
                 .tooltip("Vaultwarden Manager")
@@ -159,5 +160,8 @@ fn main() {
             commands::backup::download_sqlite3,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            eprintln!("Fatal error: {}", e);
+            std::process::exit(1);
+        });
 }

@@ -277,7 +277,7 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
 
     let output = Command::new(&sqlite3_path)
         .arg(&db_path)
-        .arg(format!(".backup {}", backup_path.to_str().unwrap()))
+        .arg(format!(".backup {}", backup_path.to_string_lossy()))
         .output()
         .map_err(|e| {
             format!(

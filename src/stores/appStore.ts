@@ -713,7 +713,7 @@ function createAppStore() {
   };
 
   const initAndStart = async () => {
-    setupListeners();
+    await setupListeners();
     await loadConfig();
   };
 
