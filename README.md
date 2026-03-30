@@ -30,11 +30,6 @@ A Vaultwarden management GUI for Windows, built with Tauri 2 + SolidJS.
 |------------|-----------|
 | ![English Light](screenshots/05-english-light.png) | ![English Dark](screenshots/04-english-dark.png) |
 
-#### 中文
-
-| 亮色模式 | 暗色模式 |
-|----------|----------|
-| ![中文亮色](screenshots/03-chinese-light.png) | ![中文暗色](screenshots/02-chinese-dark.png) |
 
 ### Directory Structure
 
