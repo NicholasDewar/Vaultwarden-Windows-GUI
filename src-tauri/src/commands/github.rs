@@ -183,6 +183,63 @@ pub async fn check_gui_updates(current_version: String) -> Result<GuiUpdateInfo,
     })
 }
 
+#[tauri::command]
+pub async fn download_gui_installer(
+    download_url: String,
+    version: String,
+    window: tauri::Window,
+) -> Result<String, String> {
+    let client = reqwest::Client::new();
+    
+    let response = client
+        .get(&download_url)
+        .header("User-Agent", "Vaultwarden-GUI")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!("Failed to download: {}", response.status()));
+    }
+
+    let total_size = response.content_length().unwrap_or(0);
+    let filename = format!("Vaultwarden.Manager_{}_x64-setup.exe", version);
+    let temp_dir = std::env::temp_dir();
+    let installer_path = temp_dir.join(&filename);
+
+    let mut file = tokio::fs::File::create(&installer_path)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut downloaded: u64 = 0;
+    let mut stream = response.bytes_stream();
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+        let progress = if total_size > 0 {
+            (downloaded as f64 / total_size as f64 * 100.0) as u8
+        } else {
+            0
+        };
+        let _ = window.emit("download-progress", serde_json::json!({
+            "progress": progress,
+            "downloaded": downloaded,
+            "total": total_size,
+            "file": filename
+        }));
+        file.write_all(&chunk).await.map_err(|e| e.to_string())?;
+    }
+
+    let _ = window.emit("download-complete", serde_json::json!({
+        "path": installer_path.to_string_lossy(),
+        "file": filename
+    }));
+
+    log::info!("Downloaded GUI installer to {:?}", installer_path);
+    Ok(installer_path.to_string_lossy().to_string())
+}
+
 fn compare_versions(current: &str, latest: &str) -> i32 {
     let current_parts: Vec<u32> = current
         .split('.')
@@ -553,4 +610,45 @@ pub async fn check_binary_update() -> Result<BinaryUpdateInfo, String> {
         webvault_latest,
         webvault_has_update,
     })
+}
+
+#[tauri::command]
+pub async fn install_gui_update(installer_path: String) -> Result<(), String> {
+    let installer = Path::new(&installer_path);
+    if !installer.exists() {
+        return Err(format!("Installer not found: {}", installer_path));
+    }
+
+    crate::commands::process::stop_vaultwarden();
+
+    #[cfg(windows)]
+    {
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "start", "/wait", "", &installer_path])
+            .spawn()
+            .map_err(|e| e.to_string())?
+            .wait()
+            .map_err(|e| e.to_string())?;
+        
+        if !status.success() {
+            return Err("Installer exited with error".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn relaunch_app() -> Result<(), String> {
+    let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
+    
+    #[cfg(windows)]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &exe_path.to_string_lossy()])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }

@@ -113,6 +113,8 @@ function createAppStore() {
   const [logs, setLogs] = createSignal<LogEntry[]>([]);
   const [isCheckingUpdate, setIsCheckingUpdate] = createSignal(false);
   const [guiUpdate, setGuiUpdate] = createSignal<GuiUpdateInfo | null>(null);
+  const [isDownloadingGui, setIsDownloadingGui] = createSignal(false);
+  const [downloadGuiProgress, setDownloadGuiProgress] = createSignal(0);
   const [isDownloading, setIsDownloading] = createSignal(false);
   const [downloadProgress, setDownloadProgress] = createSignal(0);
   const [downloadFile, setDownloadFile] = createSignal("");
@@ -237,6 +239,47 @@ function createAppStore() {
     } catch (e) {
       console.error("Failed to check GUI updates:", e);
       return null;
+    }
+  };
+
+  const downloadGuiUpdate = async () => {
+    const update = guiUpdate();
+    if (!update || !update.download_url) {
+      throw new Error("No update available");
+    }
+    setIsDownloadingGui(true);
+    setDownloadGuiProgress(0);
+    setError(null);
+    try {
+      await invoke("download_gui_installer", { 
+        downloadUrl: update.download_url,
+        version: update.latest_version
+      });
+    } catch (e) {
+      console.error("Failed to download GUI update:", e);
+      setError(String(e));
+      throw e;
+    } finally {
+      setIsDownloadingGui(false);
+      setDownloadGuiProgress(0);
+    }
+  };
+
+  const installGuiUpdate = async () => {
+    const update = guiUpdate();
+    if (!update || !update.download_url) {
+      throw new Error("No update available");
+    }
+    try {
+      const version = update.latest_version;
+      const filename = `Vaultwarden.Manager_${version}_x64-setup.exe`;
+      const tempDir = await invoke<string>("get_temp_dir").catch(() => "");
+      const installerPath = tempDir ? `${tempDir}\\${filename}` : `C:\\Users\\${await invoke<string>("get_username").catch(() => "User")}\\AppData\\Local\\Temp\\${filename}`;
+      await invoke("install_gui_update", { installerPath });
+    } catch (e) {
+      console.error("Failed to install GUI update:", e);
+      setError(String(e));
+      throw e;
     }
   };
 
@@ -748,7 +791,12 @@ function createAppStore() {
     isCheckingUpdate,
     setIsCheckingUpdate,
     guiUpdate,
+    setGuiUpdate,
     checkGuiUpdate,
+    downloadGuiUpdate,
+    installGuiUpdate,
+    isDownloadingGui,
+    downloadGuiProgress,
     isDownloading,
     setIsDownloading,
     downloadProgress,

@@ -12,6 +12,7 @@ import { StatusBar } from "./components/StatusBar";
 import { ServiceControl } from "./components/ServiceControl";
 import { BackupSettings } from "./components/BackupSettings";
 import { BackupPanel } from "./components/BackupPanel";
+import { UpdateButton } from "./components/UpdateButton";
 import { Settings, Database, RefreshCw } from "lucide-solid";
 import "./styles/global.css";
 
@@ -124,6 +125,7 @@ const AppContent: Component = () => {
             </div>
           </Show>
 
+          <UpdateButton />
           <StatusBar />
           <ServiceControl onStart={handleStart} onStop={handleStop} />
           <ConfigPanel
