@@ -1,5 +1,5 @@
 import { createSignal, createContext, useContext, ParentComponent, createMemo } from "solid-js";
-import { flatten, translator, Translator, Flatten } from "@solid-primitives/i18n";
+import { flatten, translator, Translator, Flatten, resolveTemplate } from "@solid-primitives/i18n";
 import { zh } from "./zh";
 import { en } from "./en";
 
@@ -20,7 +20,7 @@ export const I18nProvider: ParentComponent = (props) => {
   const [locale, setLocale] = createSignal<Locale>("zh");
 
   const flatDict = createMemo(() => flatten(dictionaries[locale()]));
-  const t = createMemo(() => translator(flatDict));
+  const t = createMemo(() => translator(flatDict, resolveTemplate));
 
   return (
     <I18nContext.Provider value={{ locale, setLocale, t: t() }}>
