@@ -6,13 +6,19 @@ use std::fs;
 use std::io;
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use zip::ZipArchive;
 use tokio::io::AsyncWriteExt;
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult};
 
 use super::utils::{copy_atomic, write_atomic_string};
 
 const DEFAULT_BACKUP_DIR: &str = "backups";
 const DATABASE_PATH: &str = "data/db.sqlite3";
+const MIN_BACKUP_INTERVAL_SECS: u64 = 300;
+
+static LAST_BACKUP_TIME: Mutex<Option<Instant>> = Mutex::new(None);
 
 fn get_sqlite3_path() -> std::path::PathBuf {
     std::env::current_exe()
@@ -518,4 +524,99 @@ pub fn check_scheduled_task_exists() -> bool {
         .output();
 
     output.map(|o| o.status.success()).unwrap_or(false)
+}
+
+fn should_skip_auto_backup() -> bool {
+    if let Ok(guard) = LAST_BACKUP_TIME.lock() {
+        if let Some(last) = *guard {
+            let elapsed = Instant::now().duration_since(last);
+            return elapsed < Duration::from_secs(MIN_BACKUP_INTERVAL_SECS);
+        }
+    }
+    false
+}
+
+fn update_last_backup_time() {
+    if let Ok(mut guard) = LAST_BACKUP_TIME.lock() {
+        *guard = Some(Instant::now());
+    }
+}
+
+fn get_database_path_for_watch() -> std::path::PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(DATABASE_PATH)
+}
+
+#[tauri::command]
+pub async fn watch_database(app: tauri::AppHandle) -> Result<(), String> {
+    let db_path = get_database_path_for_watch();
+    
+    if !db_path.exists() {
+        return Err("Database file not found".to_string());
+    }
+
+    let db_parent = db_path.parent().unwrap_or(std::path::Path::new("."));
+    let db_file_name = db_path.file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("db.sqlite3")
+        .to_string();
+
+    let app_arc = Arc::new(app);
+    
+    let mut debouncer = new_debouncer(
+        Duration::from_secs(2),
+        move |res: DebounceEventResult| {
+            let app_for_emit = app_arc.clone();
+            match res {
+                Ok(events) if !events.is_empty() => {
+                    for event in events {
+                        if event.path.to_string_lossy().contains(&db_file_name) {
+                            if should_skip_auto_backup() {
+                                log::debug!("Skipping backup: minimum interval not reached");
+                                return;
+                            }
+                            
+                            log::info!("Database change detected, triggering auto-backup");
+                            let _ = app_for_emit.emit("auto-backup-started", ());
+                            
+                            let app_for_backup = app_for_emit.clone();
+                            std::thread::spawn(move || {
+                                match backup_database(None) {
+                                    Ok(info) => {
+                                        log::info!("Auto backup completed: {}", info.path);
+                                        update_last_backup_time();
+                                        let _ = app_for_backup.emit("auto-backup-completed", serde_json::json!({
+                                            "path": info.path,
+                                            "size": info.size
+                                        }));
+                                    }
+                                    Err(e) => {
+                                        log::error!("Auto backup failed: {}", e);
+                                        let _ = app_for_backup.emit("auto-backup-failed", serde_json::json!({
+                                            "error": e
+                                        }));
+                                    }
+                                }
+                            });
+                        }
+                    }
+                }
+                Ok(_) => {}
+                Err(e) => log::error!("Watch error: {}", e),
+            }
+        }
+    ).map_err(|e| e.to_string())?;
+
+    debouncer.watcher()
+        .watch(db_parent, notify_debouncer_mini::notify::RecursiveMode::NonRecursive)
+        .map_err(|e| e.to_string())?;
+
+    log::info!("Database watcher started for: {:?}", db_path);
+    
+    loop {
+        tokio::time::sleep(Duration::from_secs(60)).await;
+    }
 }

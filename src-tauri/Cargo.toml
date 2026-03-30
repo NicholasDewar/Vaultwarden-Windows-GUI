@@ -29,6 +29,7 @@ chrono = "0.4"
 tar = "0.4"
 flate2 = "1.0"
 zip = "2.0"
+notify-debouncer-mini = "0.7"
 
 [features]
 default = ["custom-protocol"]

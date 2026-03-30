@@ -24,9 +24,15 @@ impl BackgroundTasks {
             let config = crate::commands::config::load_config_internal();
             let _ = app.emit("config-loaded", config);
 
+            let app_for_backup = app.clone();
             spawn(Self::check_cert_tools(app.clone()));
             spawn(Self::check_versions(app.clone()));
             spawn(Self::poll_status(app));
+            spawn(async move {
+                if let Err(e) = crate::commands::backup::watch_database(app_for_backup).await {
+                    log::error!("Failed to start database watcher: {}", e);
+                }
+            });
         });
     }
 
