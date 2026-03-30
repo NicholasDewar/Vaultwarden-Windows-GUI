@@ -5,6 +5,7 @@ use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader as AsyncBufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::oneshot;
+use tokio::task;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -365,24 +366,14 @@ pub fn check_openssl_available() -> bool {
 }
 
 #[tauri::command]
-pub fn check_cert_tools_available() -> Result<CertToolsStatus, String> {
-    let mut openssl_cmd = std::process::Command::new("openssl");
-    openssl_cmd.arg("version");
-    #[cfg(windows)]
-    openssl_cmd.creation_flags(CREATE_NO_WINDOW);
-    let openssl_available = openssl_cmd
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+pub async fn check_cert_tools_available() -> Result<CertToolsStatus, String> {
+    let (openssl_available, mkcert_available) = tokio::join!(
+        tokio::task::spawn_blocking(|| check_openssl_sync()),
+        tokio::task::spawn_blocking(|| check_mkcert_sync())
+    );
 
-    let mut mkcert_cmd = std::process::Command::new("mkcert");
-    mkcert_cmd.arg("-version");
-    #[cfg(windows)]
-    mkcert_cmd.creation_flags(CREATE_NO_WINDOW);
-    let mkcert_available = mkcert_cmd
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
+    let openssl_available = openssl_available.unwrap_or(false);
+    let mkcert_available = mkcert_available.unwrap_or(false);
 
     let mkcert_ca_installed = if mkcert_available {
         check_mkcert_ca_installed()
@@ -395,6 +386,26 @@ pub fn check_cert_tools_available() -> Result<CertToolsStatus, String> {
         mkcert_available,
         mkcert_ca_installed,
     })
+}
+
+fn check_openssl_sync() -> bool {
+    let mut cmd = std::process::Command::new("openssl");
+    cmd.arg("version");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+fn check_mkcert_sync() -> bool {
+    let mut cmd = std::process::Command::new("mkcert");
+    cmd.arg("-version");
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+    cmd.output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 fn check_mkcert_ca_installed() -> bool {

@@ -31,8 +31,6 @@ impl BackgroundTasks {
     }
 
     async fn check_cert_tools(app: AppHandle) {
-        sleep(Duration::from_secs(2)).await;
-        
         let openssl_available = check_openssl_internal();
         let mkcert_available = check_mkcert_internal();
         let mkcert_ca_installed = if mkcert_available {
@@ -51,8 +49,6 @@ impl BackgroundTasks {
     }
 
     async fn check_versions(app: AppHandle) {
-        sleep(Duration::from_secs(3)).await;
-
         let binary_latest = get_latest_binary_version_internal().await;
         let webvault_latest = get_latest_webvault_version_internal().await;
         let binary_version = get_binary_version_internal();

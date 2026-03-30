@@ -388,7 +388,10 @@ function createAppStore() {
 
   const addLog = (level: string, message: string) => {
     const timestamp = new Date().toLocaleTimeString();
-    setLogs((prev) => [...prev, { timestamp, level, message }].slice(-500));
+    setLogs((prev) => {
+      const newLogs = prev.concat({ timestamp, level, message });
+      return newLogs.length > 500 ? newLogs.slice(-500) : newLogs;
+    });
   };
 
   const clearLogs = () => {
@@ -713,8 +716,10 @@ function createAppStore() {
   };
 
   const initAndStart = async () => {
-    await setupListeners();
-    await loadConfig();
+    await Promise.all([
+        setupListeners(),
+        loadConfig()
+    ]);
   };
 
   return {

@@ -1,4 +1,4 @@
-import { Component, Show } from "solid-js";
+import { Component, Show, createMemo } from "solid-js";
 import { useI18n } from "../i18n";
 import { appStore } from "../stores/appStore";
 import { Settings, Globe, Shield, Check, X, Download, ArrowUp, AlertTriangle } from "lucide-solid";
@@ -7,26 +7,26 @@ export const StatusBar: Component = () => {
   const { t } = useI18n();
   const store = appStore;
 
-  const canGenerateCerts = () => {
+  const canGenerateCerts = createMemo(() => {
     const status = store.certToolsStatus();
     const tool = store.certTool();
     if (tool === 'openssl') return status?.openssl_available ?? false;
     if (tool === 'mkcert') return status?.mkcert_available ?? false;
     return false;
-  };
+  });
 
-  const getMkcertStatusText = () => {
+  const getMkcertStatusText = createMemo(() => {
     const status = store.certToolsStatus();
     if (!status) return "";
     if (!status.mkcert_available) return t("env.mkcertNotInstalled");
     if (!status.mkcert_ca_installed) return t("env.mkcertCaNotInstalled");
     return t("env.mkcertCaInstalled");
-  };
+  });
 
-  const isMkcertReady = () => {
+  const isMkcertReady = createMemo(() => {
     const status = store.certToolsStatus();
     return status?.mkcert_available && status?.mkcert_ca_installed;
-  };
+  });
 
   const handleDownloadBinary = async () => {
     if (store.binaryLatestVersion()) {

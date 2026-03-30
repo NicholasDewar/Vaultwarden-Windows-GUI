@@ -6,6 +6,7 @@ use std::path::Path;
 use tauri::Emitter;
 use tar::Archive;
 use tokio::io::AsyncWriteExt;
+use tokio::task;
 
 const BINARY_OWNER: &str = "NicholasDewar";
 const BINARY_REPO: &str = "Vaultwarden-Windows-Binary";
@@ -516,10 +517,17 @@ fn normalize_version(version: &str) -> String {
 
 #[tauri::command]
 pub async fn check_binary_update() -> Result<BinaryUpdateInfo, String> {
-    let current = get_binary_version();
+    let ((latest, webvault_latest), current, webvault_version) = tokio::join!(
+        async {
+            let latest = get_latest_binary_version().await.ok();
+            let webvault_latest = get_latest_webvault_version().await.ok().map(|v| v.version);
+            (latest, webvault_latest)
+        },
+        tokio::task::spawn_blocking(|| get_binary_version()),
+        tokio::task::spawn_blocking(|| get_webvault_version())
+    );
+
     let current_normalized = current.as_ref().map(|v| normalize_version(v));
-    
-    let latest = get_latest_binary_version().await.ok();
     let latest_normalized = latest.as_ref().map(|v| normalize_version(v));
     
     let has_update = match (&current_normalized, &latest_normalized) {
@@ -528,10 +536,7 @@ pub async fn check_binary_update() -> Result<BinaryUpdateInfo, String> {
         _ => false,
     };
 
-    let webvault_version = get_webvault_version();
     let webvault_normalized = webvault_version.as_ref().map(|v| normalize_version(v));
-    
-    let webvault_latest = get_latest_webvault_version().await.ok().map(|v| v.version);
     let webvault_latest_normalized = webvault_latest.as_ref().map(|v| normalize_version(v));
     
     let webvault_has_update = match (&webvault_normalized, &webvault_latest_normalized) {
