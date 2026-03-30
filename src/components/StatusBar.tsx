@@ -7,25 +7,18 @@ export const StatusBar: Component = () => {
   const { t } = useI18n();
   const store = appStore;
 
-  const canGenerateCerts = createMemo(() => {
+  const certStatus = createMemo(() => {
     const status = store.certToolsStatus();
     const tool = store.certTool();
-    if (tool === 'openssl') return status?.openssl_available ?? false;
-    if (tool === 'mkcert') return status?.mkcert_available ?? false;
-    return false;
-  });
-
-  const getMkcertStatusText = createMemo(() => {
-    const status = store.certToolsStatus();
-    if (!status) return "";
-    if (!status.mkcert_available) return t("env.mkcertNotInstalled");
-    if (!status.mkcert_ca_installed) return t("env.mkcertCaNotInstalled");
-    return t("env.mkcertCaInstalled");
-  });
-
-  const isMkcertReady = createMemo(() => {
-    const status = store.certToolsStatus();
-    return status?.mkcert_available && status?.mkcert_ca_installed;
+    const canGenerate = tool === 'openssl' 
+      ? status?.openssl_available ?? false 
+      : status?.mkcert_available ?? false;
+    const mkcertText = !status ? "" 
+      : !status.mkcert_available ? t("env.mkcertNotInstalled")
+      : !status.mkcert_ca_installed ? t("env.mkcertCaNotInstalled")
+      : t("env.mkcertCaInstalled");
+    const isMkcertReady = status?.mkcert_available && status?.mkcert_ca_installed;
+    return { canGenerate, mkcertText, isMkcertReady };
   });
 
   const handleDownloadBinary = async () => {
@@ -188,7 +181,7 @@ export const StatusBar: Component = () => {
 
                 <Show when={store.certToolsStatus()?.mkcert_available && !store.certToolsStatus()?.mkcert_ca_installed}>
                   <div class="mkcert-ca-status">
-                    <span class="status-warning"><AlertTriangle size={14} /> {getMkcertStatusText()}</span>
+                    <span class="status-warning"><AlertTriangle size={14} /> {certStatus().mkcertText}</span>
                     <button
                       class="btn btn-primary btn-small"
                       onClick={() => store.installMkcertCA()}
@@ -198,9 +191,9 @@ export const StatusBar: Component = () => {
                   </div>
                 </Show>
 
-                <Show when={isMkcertReady()}>
+                <Show when={certStatus().isMkcertReady}>
                   <div class="mkcert-ca-status ready">
-                    <Check size={14} /> {getMkcertStatusText()}
+                    <Check size={14} /> {certStatus().mkcertText}
                   </div>
                 </Show>
               </Show>
@@ -224,7 +217,7 @@ export const StatusBar: Component = () => {
               <button
                 class="btn btn-primary btn-small"
                 onClick={handleGenerateCerts}
-                disabled={store.isGeneratingCerts() || !canGenerateCerts()}
+                disabled={store.isGeneratingCerts() || !certStatus().canGenerate}
               >
                 <Show when={store.isGeneratingCerts()} fallback={<><Shield size={14} /> {t("env.generateCerts")}</>}>
                   <span class="spinner"></span>

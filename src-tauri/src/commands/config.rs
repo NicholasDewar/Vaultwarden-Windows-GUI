@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use super::process::VaultwardenConfig;
+use super::utils::write_atomic_string;
 
 fn get_config_path() -> Result<PathBuf, String> {
     let config_dir = std::env::current_exe()
@@ -46,7 +47,7 @@ pub fn save_config(config: VaultwardenConfig) -> Result<(), String> {
         }
     }
 
-    fs::write(&config_path, &json).map_err(|e| format!("Failed to write config file: {}", e))?;
+    write_atomic_string(&config_path, &json)?;
     log::info!("Config saved to {:?}", config_path);
     log::debug!("Config content: {}", json);
     Ok(())
@@ -89,7 +90,7 @@ pub fn load_config_internal() -> VaultwardenConfig {
 #[tauri::command]
 pub fn set_language(lang: String) -> Result<(), String> {
     let path = get_language_path()?;
-    fs::write(&path, lang).map_err(|e| e.to_string())?;
+    write_atomic_string(&path, &lang)?;
     log::info!("Language set to: {:?}", path);
     Ok(())
 }

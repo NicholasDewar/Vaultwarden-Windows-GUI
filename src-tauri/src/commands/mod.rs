@@ -5,3 +5,5 @@ pub mod ip;
 pub mod logs;
 pub mod backup;
 pub mod background;
+pub mod autostart;
+pub mod utils;

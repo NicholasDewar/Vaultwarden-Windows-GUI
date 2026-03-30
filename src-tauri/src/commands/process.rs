@@ -15,6 +15,9 @@ pub(crate) static VAULTWARDEN_PROCESS: std::sync::OnceLock<Mutex<Option<Child>>>
 pub(crate) static READER_ABORT_HANDLES: std::sync::OnceLock<Mutex<Option<Vec<oneshot::Sender<()>>>>> =
     std::sync::OnceLock::new();
 
+pub(crate) static VAULTWARDEN_EXE_PATH: std::sync::OnceLock<String> =
+    std::sync::OnceLock::new();
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct VaultwardenConfig {
     pub address: String,
@@ -243,6 +246,20 @@ pub fn get_status() -> bool {
 }
 
 fn find_vaultwarden_exe() -> Result<String, String> {
+    if let Some(cached) = VAULTWARDEN_EXE_PATH.get() {
+        return Ok(cached.clone());
+    }
+
+    let result = find_vaultwarden_exe_uncached();
+    
+    if let Ok(ref path) = result {
+        let _ = VAULTWARDEN_EXE_PATH.set(path.clone());
+    }
+    
+    result
+}
+
+fn find_vaultwarden_exe_uncached() -> Result<String, String> {
     let exe_path = Path::new("vaultwarden.exe");
     if exe_path.exists() {
         return Ok(exe_path.to_string_lossy().to_string());
@@ -313,11 +330,23 @@ pub fn validate_environment(config: VaultwardenConfig) -> ValidationResult {
 }
 
 #[tauri::command]
-pub fn generate_certificates(
+pub async fn generate_certificates(
     cert_path: String,
     key_path: String,
     ip: String,
 ) -> Result<(), String> {
+    let cert_path_clone = cert_path.clone();
+    let key_path_clone = key_path.clone();
+    let ip_clone = ip.clone();
+
+    tokio::task::spawn_blocking(move || {
+        run_openssl_generation(&cert_path_clone, &key_path_clone, &ip_clone)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
+}
+
+fn run_openssl_generation(cert_path: &str, key_path: &str, ip: &str) -> Result<(), String> {
     let output = std::process::Command::new("openssl")
         .args(&[
             "req",
@@ -328,9 +357,9 @@ pub fn generate_certificates(
             "-days",
             "3650",
             "-keyout",
-            &key_path,
+            key_path,
             "-out",
-            &cert_path,
+            cert_path,
             "-subj",
             "/CN=localhost",
             "-addext",
@@ -454,16 +483,25 @@ pub fn install_mkcert_ca() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn generate_certificates_with_tool(
+pub async fn generate_certificates_with_tool(
     cert_path: String,
     key_path: String,
     ip: String,
     tool: String,
 ) -> Result<(), String> {
-    match tool.as_str() {
-        "mkcert" => generate_cert_with_mkcert(&cert_path, &key_path, &ip),
-        "openssl" | _ => generate_cert_with_openssl(&cert_path, &key_path, &ip),
-    }
+    let cert_path_clone = cert_path.clone();
+    let key_path_clone = key_path.clone();
+    let ip_clone = ip.clone();
+    let tool_clone = tool.clone();
+
+    tokio::task::spawn_blocking(move || {
+        match tool_clone.as_str() {
+            "mkcert" => generate_cert_with_mkcert(&cert_path_clone, &key_path_clone, &ip_clone),
+            "openssl" | _ => run_openssl_generation(&cert_path_clone, &key_path_clone, &ip_clone),
+        }
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 fn generate_cert_with_mkcert(cert_path: &str, key_path: &str, ip: &str) -> Result<(), String> {

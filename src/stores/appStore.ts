@@ -1,6 +1,6 @@
-import { createSignal, createRoot } from "solid-js";
+import { createSignal, createRoot, onCleanup } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export interface ReleaseInfo {
@@ -141,6 +141,7 @@ function createAppStore() {
   const [scheduledTaskExists, setScheduledTaskExists] = createSignal(false);
   const [sqlite3Installed, setSqlite3Installed] = createSignal(false);
   const [needsSqlite3Download, setNeedsSqlite3Download] = createSignal(false);
+  const [autostartEnabled, setAutostartEnabled] = createSignal(false);
 
   const defaultConfig: VaultwardenConfig = {
     address: "0.0.0.0",
@@ -431,9 +432,12 @@ function createAppStore() {
 
   const addLog = (level: string, message: string) => {
     const timestamp = new Date().toLocaleTimeString();
+    const newEntry = { timestamp, level, message };
     setLogs((prev) => {
-      const newLogs = prev.concat({ timestamp, level, message });
-      return newLogs.length > 500 ? newLogs.slice(-500) : newLogs;
+      if (prev.length >= 500) {
+        return [...prev.slice(-499), newEntry];
+      }
+      return [...prev, newEntry];
     });
   };
 
@@ -590,13 +594,17 @@ function createAppStore() {
         return;
       }
       
-      await invoke("backup_database", { backupDir: backupConfig().custom_dir });
-      await invoke("cleanup_old_backups", { 
-        backupDir: backupConfig().custom_dir, 
-        retentionCount: backupConfig().retention_count 
-      });
-      await listBackups();
-      const lastTime = await invoke<string | null>("get_last_backup_time", { backupDir: backupConfig().custom_dir });
+      await Promise.all([
+        invoke("backup_database", { backupDir: backupConfig().custom_dir }),
+        invoke("cleanup_old_backups", { 
+          backupDir: backupConfig().custom_dir, 
+          retentionCount: backupConfig().retention_count 
+        }),
+      ]);
+      const [backups, lastTime] = await Promise.all([
+        listBackups(),
+        invoke<string | null>("get_last_backup_time", { backupDir: backupConfig().custom_dir }),
+      ]);
       setLastBackup(lastTime);
     } catch (e) {
       console.error("Failed to perform backup:", e);
@@ -620,13 +628,17 @@ function createAppStore() {
           throw new Error("SQLITE3_NOT_INSTALLED");
         }
       }
-      await invoke("backup_database", { backupDir: backupConfig().custom_dir });
-      await invoke("cleanup_old_backups", { 
-        backupDir: backupConfig().custom_dir, 
-        retentionCount: backupConfig().retention_count 
-      });
-      await listBackups();
-      const lastTime = await invoke<string | null>("get_last_backup_time", { backupDir: backupConfig().custom_dir });
+      await Promise.all([
+        invoke("backup_database", { backupDir: backupConfig().custom_dir }),
+        invoke("cleanup_old_backups", { 
+          backupDir: backupConfig().custom_dir, 
+          retentionCount: backupConfig().retention_count 
+        }),
+      ]);
+      const [backups, lastTime] = await Promise.all([
+        listBackups(),
+        invoke<string | null>("get_last_backup_time", { backupDir: backupConfig().custom_dir }),
+      ]);
       setLastBackup(lastTime);
     } catch (e) {
       console.error("Failed to perform backup:", e);
@@ -665,6 +677,25 @@ function createAppStore() {
     }
   };
 
+  const loadAutostartConfig = async () => {
+    try {
+      const enabled = await invoke<boolean>("get_autostart_enabled");
+      setAutostartEnabled(enabled);
+    } catch (e) {
+      console.error("Failed to load autostart config:", e);
+    }
+  };
+
+  const saveAutostartConfig = async (enabled: boolean) => {
+    try {
+      await invoke("set_autostart_enabled", { enabled });
+      setAutostartEnabled(enabled);
+    } catch (e) {
+      console.error("Failed to set autostart:", e);
+      throw e;
+    }
+  };
+
   const selectBackupDirectory = async () => {
     try {
       const selected = await open({
@@ -684,84 +715,106 @@ function createAppStore() {
   };
 
   const setupListeners = async () => {
-    listen<boolean>("status-changed", (event) => {
-      setIsRunning(event.payload);
-    });
+    const unlistenPromises = [
+      listen<boolean>("status-changed", (event) => {
+        setIsRunning(event.payload);
+      }),
 
-    listen<CertToolsStatus>("cert-tools-status", (event) => {
-      setCertToolsStatus(event.payload);
-      setOpensslAvailable(event.payload.openssl_available);
-      if (event.payload.mkcert_available) {
-        setCertTool('mkcert');
-      } else if (event.payload.openssl_available) {
-        setCertTool('openssl');
-      }
-    });
+      listen<CertToolsStatus>("cert-tools-status", (event) => {
+        setCertToolsStatus(event.payload);
+        setOpensslAvailable(event.payload.openssl_available);
+        if (event.payload.mkcert_available) {
+          setCertTool('mkcert');
+        } else if (event.payload.openssl_available) {
+          setCertTool('openssl');
+        }
+      }),
 
-    listen<{
-      binaryLatestVersion: string;
-      webvaultLatestVersion: string;
-      binaryVersion: string;
-      webvaultVersion: string;
-      validation: ValidationResult;
-    }>("versions-checked", (event) => {
-      const payload = event.payload;
-      setBinaryLatestVersion(payload.binaryLatestVersion);
-      setWebvaultLatestVersion(payload.webvaultLatestVersion);
-      setBinaryVersion(payload.binaryVersion);
-      setWebvaultVersion(payload.webvaultVersion);
-      setValidation(payload.validation);
-      setIsCheckingUpdate(false);
-    });
+      listen<{
+        binaryLatestVersion: string;
+        webvaultLatestVersion: string;
+        binaryVersion: string;
+        webvaultVersion: string;
+        validation: ValidationResult;
+      }>("versions-checked", (event) => {
+        const payload = event.payload;
+        setBinaryLatestVersion(payload.binaryLatestVersion);
+        setWebvaultLatestVersion(payload.webvaultLatestVersion);
+        setBinaryVersion(payload.binaryVersion);
+        setWebvaultVersion(payload.webvaultVersion);
+        setValidation(payload.validation);
+        setIsCheckingUpdate(false);
+      }),
 
-    listen<{ level: string; message: string }>("vaultwarden-log", (event) => {
-      addLog(event.payload.level, event.payload.message);
-    });
+      listen<{ level: string; message: string }>("vaultwarden-log", (event) => {
+        addLog(event.payload.level, event.payload.message);
+      }),
 
-    listen<VaultwardenConfig>("config-loaded", (event) => {
-      setConfig(event.payload);
-    });
+      listen<VaultwardenConfig>("config-loaded", (event) => {
+        setConfig(event.payload);
+      }),
 
-    listen<{ progress: number; downloaded: number; total: number; file: string }>(
-      "download-progress",
-      (event) => {
-        setDownloadProgress(event.payload.progress);
-        setDownloadFile(event.payload.file);
-      }
-    );
+      listen<{ progress: number; downloaded: number; total: number; file: string }>(
+        "download-progress",
+        (event) => {
+          setDownloadProgress(event.payload.progress);
+          setDownloadFile(event.payload.file);
+        }
+      ),
 
-    listen("download-complete", () => {
-      setIsDownloading(false);
-      setDownloadProgress(0);
-      setDownloadFile("");
-    });
+      listen("download-complete", () => {
+        setIsDownloading(false);
+        setDownloadProgress(0);
+        setDownloadFile("");
+      }),
 
-    listen("tray-start", async () => {
-      if (!isRunning()) {
+      listen("tray-start", async () => {
+        if (!isRunning()) {
+          try {
+            await startVaultwarden();
+          } catch (e) {
+            console.error("Tray start failed:", e);
+          }
+        }
+      }),
+
+      listen("tray-check-update", async () => {
+        setIsCheckingUpdate(true);
+        const [latestBinary, latestWebvault] = await Promise.all([
+          invoke<string>("get_latest_binary_version"),
+          invoke<WebVaultVersion>("get_latest_webvault_version"),
+        ]);
+        setBinaryLatestVersion(latestBinary);
+        setWebvaultLatestVersion(latestWebvault.version);
+        setIsCheckingUpdate(false);
+      }),
+
+      listen("auto-start-vaultwarden", async () => {
         try {
           await startVaultwarden();
         } catch (e) {
-          console.error("Tray start failed:", e);
+          console.error("Auto start failed:", e);
         }
-      }
-    });
+      }),
+    ];
 
-    listen("tray-check-update", async () => {
-      setIsCheckingUpdate(true);
-      const [latestBinary, latestWebvault] = await Promise.all([
-        invoke<string>("get_latest_binary_version"),
-        invoke<WebVaultVersion>("get_latest_webvault_version"),
-      ]);
-      setBinaryLatestVersion(latestBinary);
-      setWebvaultLatestVersion(latestWebvault.version);
-      setIsCheckingUpdate(false);
-    });
+    const unlisteners = await Promise.all(unlistenPromises);
+
+    return () => {
+      unlisteners.forEach(fn => fn());
+    };
   };
 
+  let cleanupListeners: (() => void) | null = null;
+
   const initAndStart = async () => {
+    if (cleanupListeners) {
+      cleanupListeners();
+    }
+    cleanupListeners = await setupListeners();
     await Promise.all([
-        setupListeners(),
-        loadConfig()
+        loadConfig(),
+        loadAutostartConfig(),
     ]);
   };
 
@@ -862,6 +915,9 @@ function createAppStore() {
     deleteBackup,
     restoreBackup,
     selectBackupDirectory,
+    autostartEnabled,
+    loadAutostartConfig,
+    saveAutostartConfig,
   };
 }
 

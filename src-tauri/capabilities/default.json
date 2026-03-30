@@ -18,6 +18,7 @@
     "core:event:allow-listen",
     "opener:default",
     "dialog:default",
-    "dialog:allow-open"
+    "dialog:allow-open",
+    "autostart:default"
   ]
 }

@@ -81,6 +81,9 @@ export const en = {
     load: "Load Config",
     saved: "Config saved",
     loaded: "Config loaded",
+    autostart: "Startup",
+    autostartEnable: "Start with system",
+    autostartDescription: "Launch automatically on system startup and hide main window",
   },
   logs: {
     title: "Logs",

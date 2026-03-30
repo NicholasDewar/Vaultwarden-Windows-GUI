@@ -3,7 +3,6 @@ use std::time::Duration;
 use std::os::windows::process::CommandExt;
 use tauri::{AppHandle, Emitter};
 use tauri::async_runtime::spawn;
-use tokio::time::sleep;
 
 use crate::commands::process::{CertToolsStatus, ValidationResult};
 
@@ -68,11 +67,17 @@ impl BackgroundTasks {
     }
 
     async fn poll_status(app: AppHandle) {
-        sleep(Duration::from_secs(5)).await;
+        let mut interval = tokio::time::interval(Duration::from_secs(60));
+        let mut last_known_status = get_status_internal();
+        let _ = app.emit("status-changed", last_known_status);
+        
         loop {
-            let status = get_status_internal();
-            let _ = app.emit("status-changed", status);
-            sleep(Duration::from_secs(5)).await;
+            interval.tick().await;
+            let current_status = get_status_internal();
+            if current_status != last_known_status {
+                last_known_status = current_status;
+                let _ = app.emit("status-changed", current_status);
+            }
         }
     }
 }

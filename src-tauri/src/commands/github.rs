@@ -3,6 +3,7 @@ use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::Path;
+use std::time::Duration;
 use tauri::Emitter;
 use tar::Archive;
 use tokio::io::AsyncWriteExt;
@@ -101,6 +102,7 @@ pub async fn get_latest_binary_version() -> Result<String, String> {
         .get(&url)
         .header("User-Agent", "Vaultwarden-GUI")
         .header("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(10))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -122,6 +124,7 @@ pub async fn check_updates() -> Result<ReleaseInfo, String> {
         .get(&url)
         .header("User-Agent", "Vaultwarden-GUI")
         .header("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(10))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -152,6 +155,7 @@ pub async fn check_gui_updates(current_version: String) -> Result<GuiUpdateInfo,
         .get(&url)
         .header("User-Agent", "Vaultwarden-GUI")
         .header("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(10))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -193,6 +197,7 @@ pub async fn download_gui_installer(
     let response = client
         .get(&download_url)
         .header("User-Agent", "Vaultwarden-GUI")
+        .timeout(Duration::from_secs(120))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -275,6 +280,7 @@ pub async fn get_releases() -> Result<Vec<ReleaseInfo>, String> {
         .get(&url)
         .header("User-Agent", "Vaultwarden-GUI")
         .header("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(10))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -302,6 +308,7 @@ pub async fn download_binary(
         .get(&release_url)
         .header("User-Agent", "Vaultwarden-GUI")
         .header("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(10))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -325,6 +332,7 @@ pub async fn download_binary(
     let response = client
         .get(&asset.browser_download_url)
         .header("User-Agent", "Vaultwarden-GUI")
+        .timeout(Duration::from_secs(60))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -366,6 +374,7 @@ pub async fn get_latest_webvault_version() -> Result<WebVaultVersion, String> {
         .get(&url)
         .header("User-Agent", "Vaultwarden-GUI")
         .header("Accept", "application/vnd.github+json")
+        .timeout(Duration::from_secs(10))
         .send()
         .await
         .map_err(|e| e.to_string())?;
@@ -416,6 +425,7 @@ pub async fn download_webvault(window: tauri::Window) -> Result<String, String> 
     let response = client
         .get(&version_info.download_url)
         .header("User-Agent", "Vaultwarden-GUI")
+        .timeout(Duration::from_secs(120))
         .send()
         .await
         .map_err(|e| e.to_string())?;

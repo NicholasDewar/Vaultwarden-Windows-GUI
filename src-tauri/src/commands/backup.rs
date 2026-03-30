@@ -9,6 +9,8 @@ use std::process::Command;
 use zip::ZipArchive;
 use tokio::io::AsyncWriteExt;
 
+use super::utils::{copy_atomic, write_atomic_string};
+
 const DEFAULT_BACKUP_DIR: &str = "backups";
 const DATABASE_PATH: &str = "data/db.sqlite3";
 
@@ -234,7 +236,7 @@ pub fn get_backup_config() -> Result<BackupConfig, String> {
 pub fn save_backup_config(config: BackupConfig) -> Result<(), String> {
     let config_path = get_config_path()?;
     let json = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
-    fs::write(&config_path, json).map_err(|e| e.to_string())?;
+    write_atomic_string(&config_path, &json)?;
     log::info!("Backup config saved");
     Ok(())
 }
@@ -268,6 +270,7 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
     let timestamp = Local::now().format("%Y%m%d-%H%M").to_string();
     let filename = format!("vaultwarden_{}.sqlite3", timestamp);
     let backup_path = Path::new(&dir).join(&filename);
+    let temp_backup_path = Path::new(&dir).join(format!("vaultwarden_{}.sqlite3.tmp", timestamp));
 
     let sqlite3_path = get_sqlite3_path();
     
@@ -277,7 +280,7 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
 
     let output = Command::new(&sqlite3_path)
         .arg(&db_path)
-        .arg(format!(".backup {}", backup_path.to_string_lossy()))
+        .arg(format!(".backup {}", temp_backup_path.to_string_lossy()))
         .output()
         .map_err(|e| {
             format!(
@@ -287,9 +290,12 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
         })?;
 
     if !output.status.success() {
+        let _ = fs::remove_file(&temp_backup_path);
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("Backup failed: {}", stderr));
     }
+
+    fs::rename(&temp_backup_path, &backup_path).map_err(|e| e.to_string())?;
 
     let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
 
@@ -426,7 +432,7 @@ pub fn restore_backup(backup_path: String) -> Result<(), String> {
         return Err(format!("Backup file not found: {}", backup_path));
     }
 
-    fs::copy(&backup_path, &db_path).map_err(|e| e.to_string())?;
+    copy_atomic(&backup_path, &db_path)?;
 
     log::info!("Database restored from: {}", backup_path);
     Ok(())

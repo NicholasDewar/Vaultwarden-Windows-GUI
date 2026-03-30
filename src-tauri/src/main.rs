@@ -8,6 +8,7 @@ use tauri::{
     tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState},
     Emitter, Manager, WindowEvent,
 };
+use tauri_plugin_autostart::MacosLauncher;
 
 mod commands;
 
@@ -34,7 +35,26 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
         .setup(|app| {
+            let is_hidden = commands::autostart::is_hidden_startup();
+
+            if is_hidden {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    if let Some(window) = handle.get_webview_window("main") {
+                        let _ = window.emit("auto-start-vaultwarden", ());
+                    }
+                });
+            } else {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                }
+            }
             commands::background::BackgroundTasks::new(app.handle().clone()).start();
 
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
@@ -159,6 +179,9 @@ fn main() {
             commands::backup::check_scheduled_task_exists,
             commands::backup::check_sqlite3_installed,
             commands::backup::download_sqlite3,
+            commands::autostart::get_autostart_enabled,
+            commands::autostart::set_autostart_enabled,
+            commands::autostart::is_hidden_startup,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

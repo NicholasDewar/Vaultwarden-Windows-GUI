@@ -81,6 +81,9 @@ export const zh = {
     load: "加载配置",
     saved: "配置已保存",
     loaded: "配置已加载",
+    autostart: "开机启动",
+    autostartEnable: "开机自启动",
+    autostartDescription: "开机时自动启动程序并隐藏主窗口",
   },
   logs: {
     title: "日志",
