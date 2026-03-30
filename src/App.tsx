@@ -1,5 +1,6 @@
 import { Component, onMount, Show, createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { WebVaultVersion } from "./stores/appStore";
 import { I18nProvider, useI18n } from "./i18n";
 import { appStore } from "./stores/appStore";
@@ -22,7 +23,9 @@ const AppContent: Component = () => {
   const [activeTab, setActiveTab] = createSignal<TabType>("main");
 
   onMount(async () => {
+    const appWindow = getCurrentWindow();
     await store.initAndStart();
+    await appWindow.show();
   });
 
   const handleStart = async () => {
