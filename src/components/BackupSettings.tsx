@@ -11,8 +11,8 @@ export const BackupSettings: Component = () => {
   };
 
   const handleIntervalChange = (value: string) => {
-    const minutes = parseInt(value) || 10;
-    store.setBackupConfig((prev) => ({ ...prev, interval_minutes: minutes }));
+    const minutes = parseInt(value) || 5;
+    store.setBackupConfig((prev) => ({ ...prev, min_diff_interval: minutes }));
   };
 
   const handleRetentionChange = (value: string) => {
@@ -37,14 +37,6 @@ export const BackupSettings: Component = () => {
       store.setError(null);
     } catch (e) {
       console.error("Save backup config failed:", e);
-    }
-  };
-
-  const handleDeleteTask = async () => {
-    try {
-      await store.saveBackupConfig({ ...store.backupConfig(), enabled: false });
-    } catch (e) {
-      console.error("Delete task failed:", e);
     }
   };
 
@@ -74,7 +66,7 @@ export const BackupSettings: Component = () => {
               <input
                 type="number"
                 class="form-input styled-number"
-                value={store.backupConfig().interval_minutes}
+                value={store.backupConfig().min_diff_interval}
                 onInput={(e) => handleIntervalChange(e.currentTarget.value)}
                 min="1"
                 max="1440"
@@ -142,18 +134,6 @@ export const BackupSettings: Component = () => {
             </svg>
             {t("backup.save")}
           </button>
-          <Show when={store.scheduledTaskExists()}>
-            <button
-              class="btn btn-danger btn-small"
-              onClick={handleDeleteTask}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3,6 5,6 21,6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-              {t("backup.deleteTask")}
-            </button>
-          </Show>
         </div>
       </div>
     </div>

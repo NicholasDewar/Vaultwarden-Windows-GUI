@@ -16,9 +16,10 @@ use super::utils::{copy_atomic, write_atomic_string};
 
 const DEFAULT_BACKUP_DIR: &str = "backups";
 const DATABASE_PATH: &str = "data/db.sqlite3";
-const MIN_BACKUP_INTERVAL_SECS: u64 = 300;
+const BASE_BACKUP_FILENAME: &str = "vaultwarden_base.sqlite3";
 
 static LAST_BACKUP_TIME: Mutex<Option<Instant>> = Mutex::new(None);
+static BASE_BACKUP_PATH: Mutex<Option<String>> = Mutex::new(None);
 
 fn get_sqlite3_path() -> std::path::PathBuf {
     std::env::current_exe()
@@ -171,20 +172,18 @@ pub async fn download_sqlite3(window: tauri::Window) -> Result<String, String> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupConfig {
     pub enabled: bool,
-    pub interval_minutes: u32,
+    pub min_diff_interval: u32,
     pub retention_count: u32,
     pub custom_dir: Option<String>,
-    pub require_idle: bool,
 }
 
 impl Default for BackupConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            interval_minutes: 10,
+            min_diff_interval: 5,
             retention_count: 7,
             custom_dir: None,
-            require_idle: false,
         }
     }
 }
@@ -263,29 +262,20 @@ fn get_config_path() -> Result<std::path::PathBuf, String> {
 }
 
 #[tauri::command]
-pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String> {
-    let db_path = get_database_path();
-
-    if !Path::new(&db_path).exists() {
-        return Err(format!("Database not found at: {}", db_path));
-    }
-
-    let dir = resolve_backup_dir(backup_dir)?;
-    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-
-    let timestamp = Local::now().format("%Y%m%d-%H%M").to_string();
-    let filename = format!("vaultwarden_{}.sqlite3", timestamp);
-    let backup_path = Path::new(&dir).join(&filename);
-    let temp_backup_path = Path::new(&dir).join(format!("vaultwarden_{}.sqlite3.tmp", timestamp));
-
+fn backup_database_internal(db_path: &str, backup_dir: &str) -> Result<BackupInfo, String> {
     let sqlite3_path = get_sqlite3_path();
     
     if !sqlite3_path.exists() {
         return Err("sqlite3 not found. Please download it first.".to_string());
     }
 
+    let timestamp = Local::now().format("%Y%m%d-%H%M").to_string();
+    let filename = format!("vaultwarden_{}.sqlite3", timestamp);
+    let backup_path = Path::new(backup_dir).join(&filename);
+    let temp_backup_path = Path::new(backup_dir).join(format!("vaultwarden_{}.sqlite3.tmp", timestamp));
+
     let output = Command::new(&sqlite3_path)
-        .arg(&db_path)
+        .arg(db_path)
         .arg(format!(".backup {}", temp_backup_path.to_string_lossy()))
         .output()
         .map_err(|e| {
@@ -313,6 +303,20 @@ pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String>
         size: metadata.len(),
         created_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
     })
+}
+
+#[tauri::command]
+pub fn backup_database(backup_dir: Option<String>) -> Result<BackupInfo, String> {
+    let db_path = get_database_path();
+
+    if !Path::new(&db_path).exists() {
+        return Err(format!("Database not found at: {}", db_path));
+    }
+
+    let dir = resolve_backup_dir(backup_dir)?;
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+
+    backup_database_internal(&db_path, &dir)
 }
 
 #[tauri::command]
@@ -456,81 +460,11 @@ pub fn get_last_backup_time(backup_dir: Option<String>) -> Result<Option<String>
     Ok(backups.first().map(|b| b.created_at.clone()))
 }
 
-#[tauri::command]
-pub fn create_scheduled_task(interval_minutes: u32) -> Result<(), String> {
-    let exe_path = std::env::current_exe()
-        .map_err(|e| e.to_string())?
-        .to_string_lossy()
-        .to_string();
-
-    let task_name = "VaultwardenManager_Backup";
-
-    let _delete_output = Command::new("schtasks")
-        .args(&["/Delete", "/TN", task_name, "/F"])
-        .output();
-
-    let create_output = Command::new("schtasks")
-        .args(&[
-            "/Create",
-            "/TN",
-            task_name,
-            "/TR",
-            &format!("\"{}\" --backup", exe_path),
-            "/SC",
-            "MINUTE",
-            "/MO",
-            &interval_minutes.to_string(),
-            "/F",
-        ])
-        .output()
-        .map_err(|e| format!("Failed to create scheduled task: {}", e))?;
-
-    if !create_output.status.success() {
-        let stderr = String::from_utf8_lossy(&create_output.stderr);
-        return Err(format!("Failed to create scheduled task: {}", stderr));
-    }
-
-    log::info!(
-        "Scheduled task created with interval: {} minutes",
-        interval_minutes
-    );
-    Ok(())
-}
-
-#[tauri::command]
-pub fn delete_scheduled_task() -> Result<(), String> {
-    let task_name = "VaultwardenManager_Backup";
-
-    let output = Command::new("schtasks")
-        .args(&["/Delete", "/TN", task_name, "/F"])
-        .output()
-        .map_err(|e| format!("Failed to delete scheduled task: {}", e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Failed to delete scheduled task: {}", stderr));
-    }
-
-    log::info!("Scheduled task deleted");
-    Ok(())
-}
-
-#[tauri::command]
-pub fn check_scheduled_task_exists() -> bool {
-    let task_name = "VaultwardenManager_Backup";
-
-    let output = Command::new("schtasks")
-        .args(&["/Query", "/TN", task_name])
-        .output();
-
-    output.map(|o| o.status.success()).unwrap_or(false)
-}
-
-fn should_skip_auto_backup() -> bool {
+fn should_skip_auto_backup(min_interval_secs: u64) -> bool {
     if let Ok(guard) = LAST_BACKUP_TIME.lock() {
         if let Some(last) = *guard {
             let elapsed = Instant::now().duration_since(last);
-            return elapsed < Duration::from_secs(MIN_BACKUP_INTERVAL_SECS);
+            return elapsed < Duration::from_secs(min_interval_secs);
         }
     }
     false
@@ -540,6 +474,57 @@ fn update_last_backup_time() {
     if let Ok(mut guard) = LAST_BACKUP_TIME.lock() {
         *guard = Some(Instant::now());
     }
+}
+
+fn get_base_backup_path() -> Option<String> {
+    BASE_BACKUP_PATH.lock().ok()?.as_deref().map(|s| s.to_string())
+}
+
+fn set_base_backup_path(path: String) {
+    if let Ok(mut guard) = BASE_BACKUP_PATH.lock() {
+        *guard = Some(path);
+    }
+}
+
+fn clear_base_backup_path() {
+    if let Ok(mut guard) = BASE_BACKUP_PATH.lock() {
+        *guard = None;
+    }
+}
+
+fn get_backup_config_for_watch() -> BackupConfig {
+    get_backup_config().unwrap_or_default()
+}
+
+fn perform_diff_backup(db_path: &str, backup_dir: &str) -> Result<BackupInfo, String> {
+    let sqlite3_path = get_sqlite3_path();
+    let timestamp = Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let filename = format!("vaultwarden_diff_{}.sqlite3", timestamp);
+    let backup_path = std::path::Path::new(backup_dir).join(&filename);
+    let temp_backup_path = std::path::Path::new(backup_dir).join(format!("vaultwarden_diff_{}.sqlite3.tmp", timestamp));
+
+    let output = Command::new(&sqlite3_path)
+        .arg(db_path)
+        .arg(format!(".backup {}", temp_backup_path.to_string_lossy()))
+        .output()
+        .map_err(|e| format!("Failed to execute sqlite3: {}", e))?;
+
+    if !output.status.success() {
+        let _ = fs::remove_file(&temp_backup_path);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Diff backup failed: {}", stderr));
+    }
+
+    fs::rename(&temp_backup_path, &backup_path).map_err(|e| e.to_string())?;
+
+    let metadata = fs::metadata(&backup_path).map_err(|e| e.to_string())?;
+
+    Ok(BackupInfo {
+        filename,
+        path: backup_path.to_string_lossy().to_string(),
+        size: metadata.len(),
+        created_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+    })
 }
 
 fn get_database_path_for_watch() -> std::path::PathBuf {
@@ -558,6 +543,11 @@ pub async fn watch_database(app: tauri::AppHandle) -> Result<(), String> {
         return Err("Database file not found".to_string());
     }
 
+    let config = get_backup_config_for_watch();
+    let min_interval_secs = config.min_diff_interval as u64 * 60;
+    let backup_dir = get_backup_dir(&config);
+    fs::create_dir_all(&backup_dir).map_err(|e| e.to_string())?;
+
     let db_parent = db_path.parent().unwrap_or(std::path::Path::new("."));
     let db_file_name = db_path.file_name()
         .and_then(|n| n.to_str())
@@ -565,6 +555,7 @@ pub async fn watch_database(app: tauri::AppHandle) -> Result<(), String> {
         .to_string();
 
     let app_arc = Arc::new(app);
+    let db_path_clone = db_path.clone();
     
     let mut debouncer = new_debouncer(
         Duration::from_secs(2),
@@ -574,17 +565,40 @@ pub async fn watch_database(app: tauri::AppHandle) -> Result<(), String> {
                 Ok(events) if !events.is_empty() => {
                     for event in events {
                         if event.path.to_string_lossy().contains(&db_file_name) {
-                            if should_skip_auto_backup() {
+                            if should_skip_auto_backup(min_interval_secs) {
                                 log::debug!("Skipping backup: minimum interval not reached");
                                 return;
                             }
                             
+                            if !config.enabled {
+                                log::debug!("Auto backup is disabled");
+                                return;
+                            }
+
                             log::info!("Database change detected, triggering auto-backup");
                             let _ = app_for_emit.emit("auto-backup-started", ());
-                            
+
+                            let db_path_str = db_path_clone.to_string_lossy().to_string();
                             let app_for_backup = app_for_emit.clone();
+                            let backup_dir_clone = backup_dir.clone();
                             std::thread::spawn(move || {
-                                match backup_database(None) {
+                                let base_exists = std::path::Path::new(&format!("{}/{}", backup_dir_clone, BASE_BACKUP_FILENAME)).exists();
+                                
+                                let result = if base_exists {
+                                    log::info!("Performing differential backup");
+                                    perform_diff_backup(&db_path_str, &backup_dir_clone)
+                                } else {
+                                    log::info!("Performing full backup as base");
+                                    let full_result = backup_database_internal(&db_path_str, &backup_dir_clone);
+                                    if full_result.is_ok() {
+                                        if let Ok(info) = &full_result {
+                                            set_base_backup_path(info.path.clone());
+                                        }
+                                    }
+                                    full_result
+                                };
+                                
+                                match result {
                                     Ok(info) => {
                                         log::info!("Auto backup completed: {}", info.path);
                                         update_last_backup_time();

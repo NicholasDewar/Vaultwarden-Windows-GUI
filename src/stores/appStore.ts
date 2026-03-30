@@ -71,10 +71,9 @@ export interface GuiUpdateInfo {
 
 export interface BackupConfig {
   enabled: boolean;
-  interval_minutes: number;
+  min_diff_interval: number;
   retention_count: number;
   custom_dir: string | null;
-  require_idle: boolean;
 }
 
 export interface BackupInfo {
@@ -128,17 +127,15 @@ function createAppStore() {
 
   const [backupConfig, setBackupConfig] = createSignal<BackupConfig>({
     enabled: false,
-    interval_minutes: 10,
+    min_diff_interval: 5,
     retention_count: 7,
     custom_dir: null,
-    require_idle: false,
   });
   const [backups, setBackups] = createSignal<BackupInfo[]>([]);
   const [lastBackup, setLastBackup] = createSignal<string | null>(null);
   const [isBackingUp, setIsBackingUp] = createSignal(false);
   const [activityStatus, setActivityStatus] = createSignal<ActivityStatus | null>(null);
   const [showBackupWarning, setShowBackupWarning] = createSignal(false);
-  const [scheduledTaskExists, setScheduledTaskExists] = createSignal(false);
   const [sqlite3Installed, setSqlite3Installed] = createSignal(false);
   const [needsSqlite3Download, setNeedsSqlite3Download] = createSignal(false);
   const [autostartEnabled, setAutostartEnabled] = createSignal(false);
@@ -487,18 +484,15 @@ function createAppStore() {
 
   const defaultBackupConfig: BackupConfig = {
     enabled: false,
-    interval_minutes: 10,
+    min_diff_interval: 5,
     retention_count: 7,
     custom_dir: null,
-    require_idle: false,
   };
 
   const loadBackupConfig = async () => {
     try {
       const cfg = await invoke<BackupConfig>("get_backup_config");
       setBackupConfig(cfg);
-      const exists = await invoke<boolean>("check_scheduled_task_exists");
-      setScheduledTaskExists(exists);
     } catch (e) {
       console.error("Failed to load backup config:", e);
     }
@@ -508,13 +502,6 @@ function createAppStore() {
     try {
       await invoke("save_backup_config", { config: cfg });
       setBackupConfig(cfg);
-      if (cfg.enabled) {
-        await invoke("create_scheduled_task", { intervalMinutes: cfg.interval_minutes });
-        setScheduledTaskExists(true);
-      } else {
-        await invoke("delete_scheduled_task");
-        setScheduledTaskExists(false);
-      }
     } catch (e) {
       console.error("Failed to save backup config:", e);
       throw e;
@@ -900,8 +887,6 @@ function createAppStore() {
     setActivityStatus,
     showBackupWarning,
     setShowBackupWarning,
-    scheduledTaskExists,
-    setScheduledTaskExists,
     sqlite3Installed,
     needsSqlite3Download,
     setNeedsSqlite3Download,
