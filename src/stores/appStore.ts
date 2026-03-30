@@ -2,7 +2,6 @@ import { createSignal, createRoot } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { storeService, VaultwardenConfig as StoreVaultwardenConfig } from "./storeService";
 
 export interface ReleaseInfo {
   tag: string;
@@ -153,18 +152,18 @@ function createAppStore() {
 
   const loadConfig = async () => {
     try {
-      const cfg = await storeService.getConfig();
-      setConfig(cfg || defaultConfig);
+      const cfg = await invoke<VaultwardenConfig>("load_config");
+      setConfig(cfg);
       console.info("Config loaded successfully");
     } catch (e) {
       console.error("Failed to load config:", e);
-      setConfig(defaultConfig);
+      throw e;
     }
   };
 
   const saveConfig = async (cfg: VaultwardenConfig) => {
     try {
-      await storeService.setConfig(cfg);
+      await invoke("save_config", { config: cfg });
       setConfig(cfg);
     } catch (e) {
       console.error("Failed to save config:", e);
@@ -446,8 +445,8 @@ function createAppStore() {
 
   const loadBackupConfig = async () => {
     try {
-      const cfg = await storeService.getBackupConfig();
-      setBackupConfig(cfg || defaultBackupConfig);
+      const cfg = await invoke<BackupConfig>("get_backup_config");
+      setBackupConfig(cfg);
       const exists = await invoke<boolean>("check_scheduled_task_exists");
       setScheduledTaskExists(exists);
     } catch (e) {
@@ -457,7 +456,7 @@ function createAppStore() {
 
   const saveBackupConfig = async (cfg: BackupConfig) => {
     try {
-      await storeService.setBackupConfig(cfg);
+      await invoke("save_backup_config", { config: cfg });
       setBackupConfig(cfg);
       if (cfg.enabled) {
         await invoke("create_scheduled_task", { intervalMinutes: cfg.interval_minutes });
