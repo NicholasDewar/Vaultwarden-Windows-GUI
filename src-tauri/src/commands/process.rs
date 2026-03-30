@@ -5,7 +5,6 @@ use tauri::Emitter;
 use tokio::io::{AsyncBufReadExt, BufReader as AsyncBufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::oneshot;
-use tokio::task;
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
