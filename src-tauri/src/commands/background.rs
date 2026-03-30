@@ -1,4 +1,5 @@
 use std::time::Duration;
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use tauri::{AppHandle, Emitter};
 use tauri::async_runtime::spawn;

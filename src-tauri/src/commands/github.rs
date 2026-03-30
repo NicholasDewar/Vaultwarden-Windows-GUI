@@ -621,7 +621,7 @@ pub async fn install_gui_update(installer_path: String) -> Result<(), String> {
         return Err(format!("Installer not found: {}", installer_path));
     }
 
-    crate::commands::process::stop_vaultwarden();
+    let _ = crate::commands::process::stop_vaultwarden().await;
 
     #[cfg(windows)]
     {
@@ -642,14 +642,17 @@ pub async fn install_gui_update(installer_path: String) -> Result<(), String> {
 
 #[tauri::command]
 pub fn relaunch_app() -> Result<(), String> {
-    let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
-    
     #[cfg(windows)]
     {
+        let exe_path = std::env::current_exe().map_err(|e| e.to_string())?;
         std::process::Command::new("cmd")
             .args(["/C", "start", "", &exe_path.to_string_lossy()])
             .spawn()
             .map_err(|e| e.to_string())?;
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = std::env::current_exe();
     }
 
     Ok(())
