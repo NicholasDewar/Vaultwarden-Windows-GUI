@@ -20,6 +20,8 @@
     "dialog:default",
     "dialog:allow-open",
     "autostart:default",
-    "store:default"
+    "store:default",
+    "log:default",
+    "fs:default"
   ]
 }
