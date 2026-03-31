@@ -136,6 +136,10 @@ export const en = {
     sqlite3Required: "SQLite3 Tool Required",
     sqlite3DownloadPrompt: "First backup requires downloading SQLite3 tool (~2MB). Download now?",
     downloadSqlite3: "Download SQLite3",
+    export: "Export Backup",
+    import: "Import Backup",
+    exportSuccess: "Backup exported successfully",
+    importSuccess: "Backup imported successfully",
   },
   actions: {
     start: "Start Vaultwarden",

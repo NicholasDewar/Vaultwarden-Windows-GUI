@@ -187,6 +187,8 @@ fn main() {
             commands::backup::get_last_backup_time,
             commands::backup::check_sqlite3_installed,
             commands::backup::download_sqlite3,
+            commands::backup::export_backup,
+            commands::backup::import_backup,
             commands::autostart::get_autostart_enabled,
             commands::autostart::set_autostart_enabled,
             commands::autostart::is_hidden_startup,

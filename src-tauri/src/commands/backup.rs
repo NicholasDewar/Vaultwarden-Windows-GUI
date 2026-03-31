@@ -3,7 +3,7 @@ use futures_util::StreamExt;
 use tauri::Emitter;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::Path;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -613,4 +613,102 @@ pub async fn watch_database(app: tauri::AppHandle) -> Result<(), String> {
     loop {
         tokio::time::sleep(Duration::from_secs(60)).await;
     }
+}
+
+#[tauri::command]
+pub fn export_backup(export_path: String) -> Result<String, String> {
+    let app_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    let config_path = app_dir.join("config.json");
+    let language_path = app_dir.join("language.json");
+    let backup_dir = app_dir.join("backups");
+
+    let _timestamp = Local::now().format("%Y%m%d_%H%M%S").to_string();
+    let zip_path = std::path::PathBuf::from(&export_path);
+
+    let file = std::fs::File::create(&zip_path)
+        .map_err(|e| format!("Failed to create zip file: {}", e))?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    let mut add_file_to_zip = |path: &std::path::Path, name: &str| -> Result<(), String> {
+        if path.exists() {
+            let content = std::fs::read(path)
+                .map_err(|e| format!("Failed to read {}: {}", name, e))?;
+            zip.start_file(name, options)
+                .map_err(|e| format!("Failed to add {} to zip: {}", name, e))?;
+            zip.write_all(&content)
+                .map_err(|e| format!("Failed to write {} to zip: {}", name, e))?;
+        }
+        Ok(())
+    };
+
+    add_file_to_zip(&config_path, "config.json")?;
+    add_file_to_zip(&language_path, "language.json")?;
+
+    if backup_dir.exists() {
+        for entry in std::fs::read_dir(&backup_dir)
+            .map_err(|e| format!("Failed to read backup dir: {}", e))?
+        {
+            let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+            let path = entry.path();
+            if path.is_file() {
+                let file_name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                let zip_name = format!("backups/{}", file_name);
+                add_file_to_zip(&path, &zip_name)?;
+            }
+        }
+    }
+
+    zip.finish().map_err(|e| format!("Failed to finish zip: {}", e))?;
+
+    log::info!("Backup exported to: {:?}", zip_path);
+    Ok(zip_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn import_backup(zip_path: String) -> Result<(), String> {
+    let app_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    let zip_path = std::path::PathBuf::from(&zip_path);
+    let file = std::fs::File::open(&zip_path)
+        .map_err(|e| format!("Failed to open zip file: {}", e))?;
+    let mut archive = ZipArchive::new(file)
+        .map_err(|e| format!("Failed to read zip archive: {}", e))?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)
+            .map_err(|e| format!("Failed to read file in zip: {}", e))?;
+        let outpath = if file.name().starts_with("backups/") {
+            app_dir.join(file.name())
+        } else {
+            app_dir.join(file.name())
+        };
+
+        if file.name().ends_with('/') {
+            std::fs::create_dir_all(&outpath)
+                .map_err(|e| format!("Failed to create dir: {}", e))?;
+        } else {
+            if let Some(parent) = outpath.parent() {
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| format!("Failed to create parent dir: {}", e))?;
+            }
+            let mut outfile = std::fs::File::create(&outpath)
+                .map_err(|e| format!("Failed to create file {}: {}", file.name(), e))?;
+            std::io::copy(&mut file, &mut outfile)
+                .map_err(|e| format!("Failed to write file {}: {}", file.name(), e))?;
+        }
+    }
+
+    log::info!("Backup imported from: {:?}", zip_path);
+    Ok(())
 }

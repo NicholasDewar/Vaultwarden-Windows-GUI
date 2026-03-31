@@ -724,6 +724,33 @@ function createAppStore() {
     }
   };
 
+  const exportBackup = async (exportPath: string) => {
+    setError(null);
+    try {
+      await invoke("export_backup", { exportPath });
+      setSuccessMessage("Backup exported successfully");
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (e) {
+      console.error("Failed to export backup:", e);
+      setError(String(e));
+      throw e;
+    }
+  };
+
+  const importBackup = async (zipPath: string) => {
+    setError(null);
+    try {
+      await invoke("import_backup", { zipPath });
+      setSuccessMessage("Backup imported successfully");
+      setTimeout(() => setSuccessMessage(null), 3000);
+      await listBackups();
+    } catch (e) {
+      console.error("Failed to import backup:", e);
+      setError(String(e));
+      throw e;
+    }
+  };
+
   const loadAutostartConfig = async () => {
     try {
       const enabled = await invoke<boolean>("get_autostart_enabled");
@@ -843,6 +870,16 @@ function createAppStore() {
           console.error("Auto start failed:", e);
         }
       }),
+
+      listen("auto-backup-completed", async () => {
+        console.info("Auto backup completed, refreshing list");
+        await listBackups();
+      }),
+
+      listen<{ error: string }>("auto-backup-failed", (event) => {
+        console.error("Auto backup failed:", event.payload.error);
+        setError(`自动备份失败: ${event.payload.error}`);
+      }),
     ];
 
     const unlisteners = await Promise.all(unlistenPromises);
@@ -960,6 +997,8 @@ function createAppStore() {
     forceBackup,
     deleteBackup,
     restoreBackup,
+    exportBackup,
+    importBackup,
     selectBackupDirectory,
     autostartEnabled,
     loadAutostartConfig,
